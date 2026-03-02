@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, Input, message, Modal, Popconfirm, Select, Space, Table } from 'antd'
+import { Button, Input, message, Modal, Popconfirm, Select, Space, Table, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import PageBreadcrumb from '../components/PageBreadcrumb'
@@ -229,7 +229,15 @@ export default function DownloadButtonPage() {
       width: 80,
       align: 'center' as const,
       render: (_: unknown, record: DownloadChannelConfig) =>
-        record.isDefault ? null : (
+        record.isDefault ? (
+          <Tooltip title="默认渠道不可删除">
+            <span>
+              <Button type="link" danger size="small" icon={<Trash2 size={14} />} disabled>
+                删除
+              </Button>
+            </span>
+          </Tooltip>
+        ) : (
           <Popconfirm
             title="确定删除该渠道？"
             onConfirm={() => handleDeleteChannel(record.id)}

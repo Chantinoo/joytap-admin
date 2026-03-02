@@ -236,18 +236,20 @@ function CollectionListEditor({
         </div>
       ))}
 
-      {/* 添加 */}
-      <AddCollectionRow
-        available={available}
-        onAdd={(name, link) => {
-          const newCol: CollectionEntry = {
-            id: `cl-${Date.now()}`, name, link, articlesCount: 0, viewsCount: 0,
-            addedAt: new Date().toISOString().slice(0, 10),
-            operator: 'Admin',
-          }
-          onChange({ ...mod, collections: [...mod.collections, newCol] })
-        }}
-      />
+      {/* 单篇集合页：仅当未选择时显示添加，每次只能有一个 */}
+      {mod.collections.length === 0 && (
+        <AddCollectionRow
+          available={available}
+          onAdd={(name, link) => {
+            const newCol: CollectionEntry = {
+              id: `cl-${Date.now()}`, name, link, articlesCount: 0, viewsCount: 0,
+              addedAt: new Date().toISOString().slice(0, 10),
+              operator: 'Admin',
+            }
+            onChange({ ...mod, collections: [newCol] })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -601,7 +603,7 @@ function PostGridEditor({ mod, onChange }: { mod: PostGridModule; onChange: (m: 
 function PreviewCollectionList({ mod }: { mod: CollectionListModule }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{mod.title}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{mod.title || '未命名'}</div>
       {mod.collections.slice(0, 5).map((col) => (
         <div key={col.id} style={{ display: 'flex', gap: 10, marginBottom: 10, padding: 10, background: '#1F2937', borderRadius: 8, alignItems: 'center' }}>
           <div style={{ width: 80, height: 48, borderRadius: 6, background: '#374151', flexShrink: 0 }} />
@@ -619,7 +621,7 @@ function PreviewCollectionList({ mod }: { mod: CollectionListModule }) {
 function PreviewCollectionGrid({ mod }: { mod: CollectionGridModule }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{mod.title}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{mod.title || '未命名'}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         {mod.collections.slice(0, 9).map((c) => (
           <div key={c.id} style={{ borderRadius: 8, overflow: 'hidden', position: 'relative', aspectRatio: '16/10' }}>
@@ -640,7 +642,7 @@ function PreviewPostGrid({ mod }: { mod: PostGridModule }) {
   const cols = mod.layout === '3-per-row' ? 3 : mod.layout === '6-per-row' ? 3 : 2
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{mod.title}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{mod.title || '未命名'}</div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8 }}>
         {mod.posts.slice(0, cols * 2).map((post) => (
           <div key={post.id} style={{ borderRadius: 8, overflow: 'hidden' }}>
@@ -733,11 +735,11 @@ export default function TabEditPage() {
     const base = { id, sortOrder: modules.length + 1, collapsed: false }
     let newMod: ContentModule
     if (type === 'collection-list') {
-      newMod = { ...base, type, title: 'New Collection List', collections: [] }
+      newMod = { ...base, type, title: '', collections: [] }
     } else if (type === 'collection-grid') {
-      newMod = { ...base, type, title: 'New Collection Grid', collections: [] }
+      newMod = { ...base, type, title: '', collections: [] }
     } else {
-      newMod = { ...base, type, title: 'New Post Grid', layout: '2-per-row', posts: [] }
+      newMod = { ...base, type, title: '', layout: '2-per-row', posts: [] }
     }
     setModules((prev) => [...prev, newMod])
     setAddModalOpen(false)
@@ -860,29 +862,38 @@ export default function TabEditPage() {
                   <Tag style={{ background: cfg.bg, color: cfg.color, border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                     {cfg.label}
                   </Tag>
-                  {editingTitleId === mod.id ? (
-                      <Input
-                        size="small"
-                        value={mod.title}
-                        autoFocus
-                        variant="borderless"
-                        style={{ fontWeight: 600, fontSize: 14, color: '#111827', flex: 1, padding: '0 4px' }}
-                        onChange={(e) => updateModule({ ...mod, title: e.target.value })}
-                        onBlur={() => setEditingTitleId(null)}
-                        onPressEnter={() => setEditingTitleId(null)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <div
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, cursor: 'text', padding: '0 4px', minWidth: 0 }}
-                        onClick={(e) => { e.stopPropagation(); setEditingTitleId(mod.id) }}
-                      >
-                        <span style={{ fontWeight: 600, fontSize: 14, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {mod.title}
-                        </span>
-                        <Pencil size={11} color="#C0C8D0" style={{ flexShrink: 0 }} />
-                      </div>
-                    )}
+                  {mod.type === 'collection-list' ? (
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {mod.collections.length === 1 ? mod.collections[0].name : '请选择集合页'}
+                    </span>
+                  ) : (
+                    <>
+                      {editingTitleId === mod.id ? (
+                        <Input
+                          size="small"
+                          value={mod.title}
+                          placeholder="名称（选填）"
+                          autoFocus
+                          variant="borderless"
+                          style={{ fontWeight: 600, fontSize: 14, color: '#111827', flex: 1, padding: '0 4px' }}
+                          onChange={(e) => updateModule({ ...mod, title: e.target.value })}
+                          onBlur={() => setEditingTitleId(null)}
+                          onPressEnter={() => setEditingTitleId(null)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, cursor: 'text', padding: '0 4px', minWidth: 0 }}
+                          onClick={(e) => { e.stopPropagation(); setEditingTitleId(mod.id) }}
+                        >
+                          <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: mod.title ? '#111827' : '#9CA3AF' }}>
+                            {mod.title || '未命名'}
+                          </span>
+                          <Pencil size={11} color="#C0C8D0" style={{ flexShrink: 0 }} />
+                        </div>
+                      )}
+                    </>
+                  )}
                   <Space size={4}>
                     <Tooltip title="预览">
                       <Button

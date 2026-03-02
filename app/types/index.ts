@@ -105,18 +105,18 @@ export const MODULE_TYPE_CONFIG: Record<
   { label: string; icon: string; color: string; bg: string; description: string }
 > = {
   'collection-list': {
-    label: '集合页列表',
+    label: '单篇集合页',
     icon: 'list',
     color: '#2563EB',
     bg: '#DBEAFE',
-    description: '以列表形式展示集合页 — 名称 · 链接 · 管理文章',
+    description: '仅配置一个集合页，直接使用集合页名称',
   },
   'collection-grid': {
     label: '集合页网格',
     icon: 'grid-2x2',
     color: '#059669',
     bg: '#D1FAE5',
-    description: '以网格形式展示集合页 — 可编辑封面 · 名称 · 链接 · 管理文章',
+    description: '以网格形式展示集合页 — 选填，可不添加；可编辑封面 · 名称 · 链接 · 管理文章',
   },
   'post-grid': {
     label: '帖子网格',

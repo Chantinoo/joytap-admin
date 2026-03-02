@@ -63,19 +63,14 @@ export const guidesModules: ContentModule[] = [
     ],
   },
 
-  // ── Module 2: Hot Guides — Collection List (Form 1)
-  // Displayed as a left-image right-text list.
+  // ── Module 2: 单篇集合页（仅允许一个集合页）
   {
     id: 'mod-1',
     type: 'collection-list',
     title: '热门攻略',
     sortOrder: 2,
     collections: [
-      { id: 'cl-1', name: '综合攻略',   link: '/collection/1',  articlesCount: 156, viewsCount: 150000, addedAt: '2025-01-10', operator: 'Admin' },
-      { id: 'cl-2', name: '新手入门',   link: '/collection/2',  articlesCount: 48,  viewsCount: 89000,  addedAt: '2025-01-12', operator: 'Admin' },
-      { id: 'cl-3', name: '兑换码汇总', link: '/collection/3',  articlesCount: 12,  viewsCount: 47000,  addedAt: '2025-01-15', operator: 'User01' },
-      { id: 'cl-4', name: '版本更新',   link: '/collection/4',  articlesCount: 34,  viewsCount: 62000,  addedAt: '2025-02-01', operator: 'User01' },
-      { id: 'cl-5', name: '强度排行',   link: '/collection/5',  articlesCount: 9,   viewsCount: 38000,  addedAt: '2025-02-10', operator: 'Admin' },
+      { id: 'cl-1', name: '综合攻略', link: '/collection/1', articlesCount: 156, viewsCount: 150000, addedAt: '2025-01-10', operator: 'Admin' },
     ],
   },
 
