@@ -50,7 +50,7 @@ export function LeaveGuardProvider({ children }: { children: React.ReactNode }) 
             type="button"
             className="ant-btn ant-btn-default"
             onClick={() => {
-              modal.destroyAll()
+              Modal.destroyAll()
               next()
             }}
             style={{ marginLeft: 8 }}
