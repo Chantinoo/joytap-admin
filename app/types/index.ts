@@ -1,5 +1,23 @@
 export type TabType = 'guides' | 'official' | 'discussion'
 
+export interface Article {
+  id: string
+  title: string
+  author: string
+  coverUrl: string
+  link: string
+  viewsCount: number
+  publishedAt: string
+}
+
+export interface CollectionPageData {
+  id: string
+  name: string
+  link: string
+  coverUrl?: string
+  articles: Article[]
+}
+
 export interface TabRoute {
   id: string
   name: string
@@ -12,9 +30,9 @@ export interface TabRoute {
 }
 
 export const TAB_TYPE_CONFIG: Record<TabType, { label: string; color: string; bg: string }> = {
-  guides: { label: 'Guides', color: '#2563EB', bg: '#DBEAFE' },
-  official: { label: 'Official', color: '#D97706', bg: '#FEF3C7' },
-  discussion: { label: 'Discussion', color: '#7C3AED', bg: '#F3E8FF' },
+  guides: { label: '攻略', color: '#2563EB', bg: '#DBEAFE' },
+  official: { label: '官方', color: '#D97706', bg: '#FEF3C7' },
+  discussion: { label: '讨论', color: '#7C3AED', bg: '#F3E8FF' },
 }
 
 // ── Module types for Level 2 page ──
@@ -28,14 +46,13 @@ export type PostGridLayout = '2-per-row' | '3-per-row' | '6-per-row'
  */
 export interface CollectionEntry {
   id: string
-  /** Display name of the collection */
   name: string
-  /** Link / slug to the collection's article list page */
   link: string
-  /** Thumbnail image URL — required for Collection Grid, optional for List */
   coverUrl?: string
   articlesCount: number
   viewsCount: number
+  addedAt?: string   // 添加时间，ISO 日期字符串
+  operator?: string  // 操作人
 }
 
 /** Individual post entry used by PostGrid */
@@ -88,24 +105,24 @@ export const MODULE_TYPE_CONFIG: Record<
   { label: string; icon: string; color: string; bg: string; description: string }
 > = {
   'collection-list': {
-    label: 'Collection List',
+    label: '集合页列表',
     icon: 'list',
     color: '#2563EB',
     bg: '#DBEAFE',
-    description: 'Collections in list form — thumbnail · name · link · manage articles',
+    description: '以列表形式展示集合页 — 名称 · 链接 · 管理文章',
   },
   'collection-grid': {
-    label: 'Collection Grid',
+    label: '集合页网格',
     icon: 'grid-2x2',
     color: '#059669',
     bg: '#D1FAE5',
-    description: 'Collections in grid form — editable thumbnail · name · link · manage articles',
+    description: '以网格形式展示集合页 — 可编辑封面 · 名称 · 链接 · 管理文章',
   },
   'post-grid': {
-    label: 'Post Grid',
+    label: '帖子网格',
     icon: 'layout-grid',
     color: '#D97706',
     bg: '#FEF3C7',
-    description: 'Individual posts in 2 / 3 / 6-column grid layout',
+    description: '帖子以 2 / 3 / 6 列网格布局展示',
   },
 }

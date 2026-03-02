@@ -10,10 +10,8 @@ import {
   Modal,
   Form,
   Input,
-  Select,
   message,
   Popconfirm,
-  Breadcrumb,
   Switch,
   Tooltip,
 } from 'antd'
@@ -22,15 +20,54 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Home,
-  LayoutGrid,
   AlertCircle,
   Lock,
   GripVertical,
 } from 'lucide-react'
-import { TabRoute, TabType, TAB_TYPE_CONFIG } from '../types'
+import { TabRoute } from '../types'
 import { initialTabRoutes } from '../data/mockData'
+import GameFilter from '../components/GameFilter'
 import dayjs from 'dayjs'
+
+function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+
+  const confirm = () => { onChange(draft); setEditing(false) }
+  const cancel = () => { setDraft(value); setEditing(false) }
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Input
+          size="small"
+          value={draft}
+          autoFocus
+          style={{ width: 160, borderRadius: 4 }}
+          onChange={(e) => setDraft(e.target.value)}
+          onPressEnter={confirm}
+          onKeyDown={(e) => e.key === 'Escape' && cancel()}
+        />
+        <Button type="primary" size="small" style={{ fontSize: 12, padding: '0 8px', height: 24 }} onClick={confirm}>确认</Button>
+        <Button size="small" style={{ fontSize: 12, padding: '0 8px', height: 24 }} onClick={cancel}>取消</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontWeight: 500, color: '#1F2937', fontSize: 13 }}>{value}</span>
+      <Tooltip title="修改名称">
+        <Button
+          type="text" size="small"
+          icon={<Pencil size={12} color="#C0C8D0" />}
+          style={{ padding: '0 2px', height: 20 }}
+          onClick={() => { setDraft(value); setEditing(true) }}
+        />
+      </Tooltip>
+    </div>
+  )
+}
 
 export default function TabRoutePage() {
   const [tabRoutes, setTabRoutes] = useState<TabRoute[]>(initialTabRoutes)
@@ -96,7 +133,7 @@ export default function TabRoutePage() {
       const rest = filtered.filter((t) => !t.isFixed).map((t, i) => ({ ...t, sortOrder: i + 1 }))
       return [...fixed, ...rest]
     })
-    messageApi.success('Tab deleted successfully')
+    messageApi.success('分区已删除')
   }
 
   const handleStatusToggle = (id: string, checked: boolean) => {
@@ -107,30 +144,29 @@ export default function TabRoutePage() {
           : t
       )
     )
-    messageApi.success(`Tab ${checked ? 'activated' : 'deactivated'}`)
+    messageApi.success(`已${checked ? '启用' : '禁用'}`)
   }
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
       const now = dayjs().format('YYYY-MM-DD')
-      const typeConfig = TAB_TYPE_CONFIG[values.type as TabType]
 
       if (editingTab) {
         setTabRoutes((prev) =>
           prev.map((t) =>
             t.id === editingTab.id
-              ? { ...t, name: values.name || typeConfig.label, type: values.type, updatedAt: now }
+              ? { ...t, name: values.name, updatedAt: now }
               : t
           )
         )
-        messageApi.success('Tab updated successfully')
+        messageApi.success('分区已更新')
       } else {
         const maxSort = Math.max(...tabRoutes.map((t) => t.sortOrder))
         const newTab: TabRoute = {
           id: String(Date.now()),
-          name: values.name || typeConfig.label,
-          type: values.type,
+          name: values.name,
+          type: 'guides',
           status: 'draft',
           sortOrder: maxSort + 1,
           isFixed: false,
@@ -138,11 +174,11 @@ export default function TabRoutePage() {
           updatedAt: now,
         }
         setTabRoutes((prev) => [...prev, newTab])
-        messageApi.success('Tab created successfully')
+        messageApi.success('分区已创建')
       }
       setModalOpen(false)
     } catch {
-      // validation failed
+      // 表单验证失败
     }
   }
 
@@ -163,9 +199,9 @@ export default function TabRoutePage() {
         ),
     },
     {
-      title: '#',
+      title: '序号',
       key: 'order',
-      width: 40,
+      width: 60,
       render: (_: unknown, record: TabRoute) =>
         record.isFixed ? (
           <span style={{ color: '#D1D5DB', fontSize: 13 }}>—</span>
@@ -174,57 +210,34 @@ export default function TabRoutePage() {
         ),
     },
     {
-      title: 'Tab Name',
+      title: '分区名称',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: TabRoute) => (
-        <span
-          style={{
-            fontWeight: 500,
-            color: record.isFixed ? '#9CA3AF' : '#111827',
-            fontSize: 14,
-          }}
-        >
-          {name}
-        </span>
-      ),
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      width: 120,
-      render: (type: string) => {
-        if (type === 'default') {
-          return <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
+      width: 200,
+      render: (name: string, record: TabRoute) => {
+        if (record.isFixed) {
+          return <span style={{ fontWeight: 500, color: '#9CA3AF', fontSize: 13 }}>{name}</span>
         }
-        const config = TAB_TYPE_CONFIG[type as TabType]
-        return config ? (
-          <Tag
-            style={{
-              background: config.bg,
-              color: config.color,
-              border: 'none',
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 500,
-            }}
-          >
-            {config.label}
-          </Tag>
-        ) : null
+        return (
+          <InlineNameEditor
+            value={name}
+            onChange={(v) => setTabRoutes((prev) =>
+              prev.map((t) => t.id === record.id ? { ...t, name: v, updatedAt: dayjs().format('YYYY-MM-DD') } : t)
+            )}
+          />
+        )
       },
     },
     {
-      title: 'Status',
+      title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 140,
       render: (status: string, record: TabRoute) => {
         if (record.isFixed) {
           return (
-            <Tag style={{ borderRadius: 12, fontSize: 12, color: '#9CA3AF', background: '#F3F4F6', border: 'none' }}>
-              Always On
+            <Tag style={{ borderRadius: 10, fontSize: 12, color: '#9CA3AF', background: '#F3F4F6', border: 'none' }}>
+              固定项
             </Tag>
           )
         }
@@ -237,56 +250,68 @@ export default function TabRoutePage() {
             />
             <Tag
               color={status === 'active' ? 'success' : 'default'}
-              style={{ borderRadius: 12, fontSize: 12 }}
+              style={{ borderRadius: 10, fontSize: 12 }}
             >
-              {status === 'active' ? 'Active' : 'Draft'}
+              {status === 'active' ? '已启用' : '未启用'}
             </Tag>
           </Space>
         )
       },
     },
     {
-      title: 'Created',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 120,
-      render: (date: string) => (
-        <span style={{ color: '#6B7280', fontSize: 12 }}>{date}</span>
+      title: '操作人',
+      key: 'operator',
+      width: 100,
+      render: (_: unknown, record: TabRoute) => (
+        <span style={{ color: '#6B7280', fontSize: 12 }}>
+          {record.isFixed ? '—' : 'Admin'}
+        </span>
       ),
     },
     {
-      title: 'Actions',
+      title: '操作时间',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      width: 120,
+      render: (date: string, record: TabRoute) => (
+        <span style={{ color: '#6B7280', fontSize: 12 }}>
+          {record.isFixed ? '—' : date}
+        </span>
+      ),
+    },
+    {
+      title: '操作',
       key: 'actions',
-      width: 100,
-      align: 'right',
+      width: 140,
+      align: 'center',
       render: (_: unknown, record: TabRoute) => {
         if (record.isFixed) {
           return <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
         }
         return (
-          <Space size={4}>
-            <Tooltip title="Edit">
-              <Button
-                type="text"
-                size="small"
-                icon={<Pencil size={15} color="#6B7280" />}
-                onClick={() => handleEdit(record)}
-              />
-            </Tooltip>
+          <Space size={8}>
+            <Button
+              type="link"
+              size="small"
+              style={{ fontSize: 12, padding: 0 }}
+              onClick={() => handleEdit(record)}
+            >
+              管理内容
+            </Button>
             <Popconfirm
-              title="Delete this tab?"
-              description={`Are you sure you want to delete "${record.name}"?`}
+              title="确认删除该分区？"
+              description={`确定要删除「${record.name}」吗？`}
               onConfirm={() => handleDelete(record.id)}
-              okText="Delete"
-              cancelText="Cancel"
+              okText="删除"
+              cancelText="取消"
               okButtonProps={{ danger: true }}
               icon={<AlertCircle size={16} color="#EF4444" />}
             >
-              <Tooltip title="Delete">
+              <Tooltip title="删除">
                 <Button
                   type="text"
                   size="small"
-                  icon={<Trash2 size={15} color="#EF4444" />}
+                  icon={<Trash2 size={14} color="#EF4444" />}
                 />
               </Tooltip>
             </Popconfirm>
@@ -297,154 +322,114 @@ export default function TabRoutePage() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {contextHolder}
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Breadcrumb
-            items={[
-              { title: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Home size={14} /> Home</span> },
-              { title: 'Tab Route' },
-            ]}
-          />
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827', margin: 0 }}>
-            Tab Route
+      <GameFilter />
+
+      {/* 页面标题区 */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#fff',
+        borderRadius: 6,
+        padding: '14px 20px',
+        border: '1px solid #E5E7EB',
+      }}>
+        <div>
+          <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1F2937', margin: 0 }}>
+            分区管理
           </h1>
-          <p style={{ fontSize: 14, color: '#6B7280', margin: 0 }}>
-            Manage navigation tabs for your game community pages
+          <p style={{ fontSize: 12, color: '#9CA3AF', margin: '4px 0 0' }}>
+            管理游戏社区的内容分区及其排序
           </p>
         </div>
         <Button
           type="primary"
-          icon={<Plus size={16} />}
+          icon={<Plus size={14} />}
           onClick={handleAdd}
-          style={{ background: '#4F46E5', borderRadius: 8, height: 36, fontWeight: 500 }}
+          style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
         >
-          Add Tab
+          新建
         </Button>
       </div>
 
-      {/* Table Card */}
-      <div
-        style={{
-          background: '#fff',
-          borderRadius: 12,
-          border: '1px solid #E5E7EB',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid #E5E7EB',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <LayoutGrid size={18} color="#4F46E5" />
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>Tab Route</span>
-            <Tag
-              style={{
-                background: '#EEF2FF',
-                color: '#4F46E5',
-                border: 'none',
-                borderRadius: 12,
-                fontSize: 12,
-              }}
-            >
-              {tabRoutes.length} tabs
-            </Tag>
-          </div>
+      {/* 列表卡片 */}
+      <div style={{
+        background: '#fff',
+        borderRadius: 6,
+        border: '1px solid #E5E7EB',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '12px 20px',
+          borderBottom: '1px solid #E5E7EB',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span style={{ width: 3, height: 14, background: '#1677FF', borderRadius: 2, display: 'inline-block' }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>列表</span>
+          <Tag style={{ background: '#E6F4FF', color: '#1677FF', border: 'none', borderRadius: 10, fontSize: 11, marginLeft: 2 }}>
+            {tabRoutes.length} 条
+          </Tag>
         </div>
         <Table
           dataSource={tabRoutes}
           columns={columns}
           rowKey="id"
-          pagination={false}
+          pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条`, showSizeChanger: true }}
           size="middle"
           rowClassName={(record) => (record.isFixed ? 'fixed-row' : '')}
           onRow={(record) =>
             record.isFixed
               ? {}
               : {
-                  draggable: true,
-                  onDragStart: () => handleDragStart(record.id),
-                  onDragOver: (e: React.DragEvent) => handleDragOver(e, record.id),
-                  onDragEnd: handleDragEnd,
-                  style: {
-                    opacity: draggingId === record.id ? 0.4 : 1,
-                    cursor: 'grab',
-                  },
-                }
+                draggable: true,
+                onDragStart: () => handleDragStart(record.id),
+                onDragOver: (e: React.DragEvent) => handleDragOver(e, record.id),
+                onDragEnd: handleDragEnd,
+                style: {
+                  opacity: draggingId === record.id ? 0.4 : 1,
+                  cursor: 'grab',
+                },
+              }
           }
         />
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* 新建 / 编辑弹窗 */}
       <Modal
-        title={editingTab ? 'Edit Tab' : 'Create New Tab'}
+        title={editingTab ? '编辑分区' : '新建分区'}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
-        okText={editingTab ? 'Save Changes' : 'Create Tab'}
-        okButtonProps={{ style: { background: '#4F46E5', borderRadius: 8 } }}
-        cancelButtonProps={{ style: { borderRadius: 8 } }}
-        width={480}
-        destroyOnClose
+        okText={editingTab ? '保存' : '创建'}
+        cancelText="取消"
+        width={440}
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
-            name="type"
-            label="Tab Type"
-            rules={[{ required: true, message: 'Please select a tab type' }]}
-          >
-            <Select
-              placeholder="Select tab type"
-              style={{ borderRadius: 8 }}
-              disabled={!!editingTab}
-              options={Object.entries(TAB_TYPE_CONFIG).map(([key, config]) => ({
-                value: key,
-                label: (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: config.color,
-                      }}
-                    />
-                    {config.label}
-                  </div>
-                ),
-              }))}
-            />
-          </Form.Item>
-
-          <Form.Item
             name="name"
-            label="Display Name (optional)"
-            tooltip="Leave empty to use the default type name"
+            label="分区名称"
+            rules={[{ required: true, message: '请输入分区名称' }]}
           >
-            <Input placeholder="Custom display name" style={{ borderRadius: 8 }} />
+            <Input placeholder="例如：攻略、官方、讨论" autoFocus />
           </Form.Item>
         </Form>
       </Modal>
 
       <style jsx global>{`
         .fixed-row td {
-          background: #F9FAFB !important;
+          background: #FAFAFA !important;
         }
         .fixed-row {
           cursor: default !important;
         }
         tr[draggable="true"]:hover td {
-          background: #F0F0FF !important;
+          background: #F0F5FF !important;
         }
         tr[draggable="true"] {
           transition: opacity 0.15s ease;

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   Button,
@@ -13,13 +13,14 @@ import {
   Tooltip,
   Popconfirm,
   Segmented,
+  Select,
 } from 'antd'
 import {
   ArrowLeft,
   Plus,
-  GripVertical,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Trash2,
   Home,
   List,
@@ -27,10 +28,10 @@ import {
   LayoutGrid,
   Eye,
   Pencil,
-  Link as LinkIcon,
   Image as ImageIcon,
   X,
   ExternalLink,
+
 } from 'lucide-react'
 import {
   ContentModule,
@@ -43,6 +44,8 @@ import {
   PostEntry,
 } from '../../types'
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
+import { useCollectionPages } from '../../context/CollectionPagesContext'
+import ImageCropModal from '../../components/ImageCropModal'
 
 function formatViews(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}w`
@@ -51,40 +54,145 @@ function formatViews(n: number): string {
 }
 
 // ─────────────────────────────────────────────
-// Collection List Editor (Form 1)
-// Name · Link · Articles count — no thumbnail editing
+// 只读 Link 展示
 // ─────────────────────────────────────────────
+function LinkDisplay({ value }: { value: string }) {
+  return value ? (
+    <a
+      href={value}
+      target="_blank"
+      rel="noreferrer"
+      style={{ fontSize: 11, color: '#1677FF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {value}
+    </a>
+  ) : (
+    <span style={{ fontSize: 11, color: '#C0C8D0' }}>未设置链接</span>
+  )
+}
+
+// ─────────────────────────────────────────────
+// CollectionReplacer：替换图标 + 搜索下拉
+// ─────────────────────────────────────────────
+type AvailableCollection = { id: string; name: string; link: string }
+
+function CollectionReplacer({
+  currentName,
+  available,
+  onReplace,
+}: {
+  currentName: string
+  available: AvailableCollection[]
+  onReplace: (name: string, link: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<string | undefined>(undefined)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (target.closest?.('.ant-select-dropdown')) return
+      if (containerRef.current && !containerRef.current.contains(target as Node)) {
+        setOpen(false)
+        setSelected(undefined)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  const handleConfirm = () => {
+    if (!selected) return
+    const col = available.find((c) => c.id === selected)
+    if (col) onReplace(col.name, col.link)
+    setOpen(false)
+    setSelected(undefined)
+  }
+
+  const handleCancel = () => { setOpen(false); setSelected(undefined) }
+
+  return (
+    <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }} onClick={(e) => e.stopPropagation()}>
+      {/* 替换按钮在左侧 */}
+      <Button
+        type="text"
+        size="small"
+        icon={<Pencil size={12} color={open ? '#1677FF' : '#9CA3AF'} />}
+        onClick={() => { setOpen((v) => !v); setSelected(undefined) }}
+        style={{
+          padding: '0 4px',
+          height: 22,
+          flexShrink: 0,
+          borderRadius: 4,
+          background: open ? '#EFF6FF' : 'transparent',
+        }}
+      />
+
+      {open ? (
+        /* 展开状态：下拉选择 + 确认/取消 */
+        <>
+          <Select
+            autoFocus
+            showSearch
+            size="small"
+            placeholder="搜索集合页..."
+            value={selected}
+            onChange={setSelected}
+            style={{ width: 160, fontSize: 12 }}
+            optionFilterProp="label"
+            options={available.map((c) => ({ value: c.id, label: c.name }))}
+            popupMatchSelectWidth={160}
+          />
+          <Button
+            type="primary"
+            size="small"
+            disabled={!selected}
+            style={{ padding: '0 8px', fontSize: 11, height: 22, borderRadius: 4, flexShrink: 0 }}
+            onClick={handleConfirm}
+          >
+            确认
+          </Button>
+          <Button
+            size="small"
+            style={{ padding: '0 8px', fontSize: 11, height: 22, borderRadius: 4, flexShrink: 0 }}
+            onClick={handleCancel}
+          >
+            取消
+          </Button>
+        </>
+      ) : (
+        /* 收起状态：只显示名称 */
+        <span style={{ fontSize: 13, fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {currentName}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function CollectionListEditor({
   mod,
   onChange,
   onEditCollection,
+  available,
 }: {
   mod: CollectionListModule
   onChange: (m: CollectionListModule) => void
   onEditCollection: (col: CollectionEntry) => void
+  available: AvailableCollection[]
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-
   const updateCollection = (id: string, patch: Partial<CollectionEntry>) => {
-    onChange({
-      ...mod,
-      collections: mod.collections.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    })
+    onChange({ ...mod, collections: mod.collections.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* Header row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 160px 80px 80px',
-          gap: 8,
-          padding: '4px 8px 8px',
-          borderBottom: '1px solid #E5E7EB',
-        }}
-      >
-        {['COLLECTION NAME', 'LINK', 'ARTICLES', ''].map((h) => (
+      {/* 表头 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1fr 90px 90px 64px 64px', gap: 8, padding: '4px 8px 8px', borderBottom: '1px solid #E5E7EB' }}>
+        {['集合页名称', '链接', '修改时间', '操作人', '文章数', ''].map((h) => (
           <span key={h} style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>{h}</span>
         ))}
       </div>
@@ -92,73 +200,36 @@ function CollectionListEditor({
       {mod.collections.map((col) => (
         <div
           key={col.id}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 160px 80px 80px',
-            gap: 8,
-            alignItems: 'center',
-            padding: '8px',
-            borderBottom: '1px solid #F9FAFB',
-            background: editingId === col.id ? '#F9FAFB' : 'transparent',
-            borderRadius: 6,
-          }}
+          style={{ display: 'grid', gridTemplateColumns: '0.7fr 1fr 90px 90px 64px 64px', gap: 8, alignItems: 'center', padding: '8px', borderBottom: '1px solid #F9FAFB', borderRadius: 6 }}
         >
-          {/* Name */}
-          {editingId === col.id ? (
-            <Input
-              size="small"
-              value={col.name}
-              autoFocus
-              style={{ borderRadius: 6 }}
-              onChange={(e) => updateCollection(col.id, { name: e.target.value })}
-              onBlur={() => setEditingId(null)}
-              onPressEnter={() => setEditingId(null)}
-            />
-          ) : (
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-              onClick={() => setEditingId(col.id)}
-            >
-              <span style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{col.name}</span>
-              <Pencil size={11} color="#D1D5DB" />
-            </div>
-          )}
+          {/* 名称列：替换图标在左 + 名称/选择器 */}
+          <CollectionReplacer
+            currentName={col.name}
+            available={available}
+            onReplace={(name, link) => updateCollection(col.id, { name, link })}
+          />
 
-          {/* Link */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <LinkIcon size={11} color="#9CA3AF" style={{ flexShrink: 0 }} />
-            <Input
-              size="small"
-              value={col.link}
-              placeholder="/collections/..."
-              style={{ borderRadius: 4, fontSize: 11 }}
-              onChange={(e) => updateCollection(col.id, { link: e.target.value })}
-            />
-          </div>
+          {/* 链接（只读） */}
+          <LinkDisplay value={col.link} />
 
-          {/* Articles count */}
-          <span style={{ fontSize: 12, color: '#6B7280' }}>
-            {col.articlesCount} articles
-          </span>
+          {/* 修改时间 */}
+          <span style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>{col.addedAt ?? '—'}</span>
 
-          {/* Actions */}
+          {/* 操作人 */}
+          <span style={{ fontSize: 11, color: '#6B7280' }}>{col.operator ?? '—'}</span>
+
+          {/* 文章数 */}
+          <span style={{ fontSize: 12, color: '#6B7280' }}>{col.articlesCount} 篇</span>
+
+          {/* 操作 */}
           <Space size={2}>
-            <Tooltip title="Manage articles (Level 3)">
-              <Button
-                type="text"
-                size="small"
-                icon={<ExternalLink size={13} color="#4F46E5" />}
-                onClick={() => onEditCollection(col)}
-                style={{ padding: '0 4px' }}
-              />
+            <Tooltip title="管理集合页">
+              <Button type="text" size="small" icon={<ExternalLink size={13} color="#4F46E5" />} onClick={() => onEditCollection(col)} style={{ padding: '0 4px' }} />
             </Tooltip>
             <Popconfirm
-              title={`Remove "${col.name}" from this module?`}
-              onConfirm={() =>
-                onChange({ ...mod, collections: mod.collections.filter((c) => c.id !== col.id) })
-              }
-              okText="Remove"
-              okButtonProps={{ danger: true }}
+              title={`确认移除「${col.name}」？`}
+              onConfirm={() => onChange({ ...mod, collections: mod.collections.filter((c) => c.id !== col.id) })}
+              okText="移除" cancelText="取消" okButtonProps={{ danger: true }}
             >
               <Button type="text" size="small" icon={<Trash2 size={13} color="#EF4444" />} style={{ padding: '0 4px' }} />
             </Popconfirm>
@@ -166,218 +237,298 @@ function CollectionListEditor({
         </div>
       ))}
 
-      <Button
-        type="dashed"
-        size="small"
-        icon={<Plus size={14} />}
-        style={{ marginTop: 8, borderRadius: 6 }}
-        onClick={() => {
+      {/* 添加 */}
+      <AddCollectionRow
+        available={available}
+        onAdd={(name, link) => {
           const newCol: CollectionEntry = {
-            id: `cl-${Date.now()}`,
-            name: 'New Collection',
-            link: '',
-            articlesCount: 0,
-            viewsCount: 0,
+            id: `cl-${Date.now()}`, name, link, articlesCount: 0, viewsCount: 0,
+            addedAt: new Date().toISOString().slice(0, 10),
+            operator: 'Admin',
           }
           onChange({ ...mod, collections: [...mod.collections, newCol] })
-          setEditingId(newCol.id)
         }}
-      >
-        Add Collection
-      </Button>
+      />
     </div>
   )
 }
 
 // ─────────────────────────────────────────────
+// AddCollectionRow：底部「+ 添加集合页」行（带选择器）
+// ─────────────────────────────────────────────
+function AddCollectionRow({
+  available,
+  onAdd,
+}: {
+  available: AvailableCollection[]
+  onAdd: (name: string, link: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<string | undefined>(undefined)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (target.closest?.('.ant-select-dropdown')) return
+      if (containerRef.current && !containerRef.current.contains(target as Node)) {
+        setOpen(false)
+        setSelected(undefined)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  const handleConfirm = () => {
+    if (!selected) return
+    const col = available.find((c) => c.id === selected)
+    if (col) onAdd(col.name, col.link)
+    setOpen(false)
+    setSelected(undefined)
+  }
+
+  if (!open) {
+    return (
+      <Button
+        type="dashed"
+        size="small"
+        icon={<Plus size={14} />}
+        style={{ marginTop: 8, borderRadius: 6 }}
+        onClick={() => setOpen(true)}
+      >
+        添加集合页
+      </Button>
+    )
+  }
+
+  return (
+    <div ref={containerRef} style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <Select
+        autoFocus
+        showSearch
+        open
+        size="small"
+        placeholder="搜索集合页..."
+        value={selected}
+        onChange={setSelected}
+        style={{ width: 160, fontSize: 12 }}
+        optionFilterProp="label"
+        options={available.map((c) => ({ value: c.id, label: c.name }))}
+        popupMatchSelectWidth={160}
+      />
+      <Button
+        type="primary"
+        size="small"
+        disabled={!selected}
+        style={{ padding: '0 10px', fontSize: 12, height: 24, borderRadius: 4 }}
+        onClick={handleConfirm}
+      >
+        确认
+      </Button>
+      <Button
+        size="small"
+        style={{ padding: '0 10px', fontSize: 12, height: 24, borderRadius: 4 }}
+        onClick={() => { setOpen(false); setSelected(undefined) }}
+      >
+        取消
+      </Button>
+    </div>
+  )
+}
+
+const THUMB_DEFAULT = 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=240&fit=crop&sat=-100'
+
+// ─────────────────────────────────────────────
+// ThumbnailCell — 缩略图编辑单元
+// 支持：粘贴链接 / 本地上传 / 拖拽裁切
+// ─────────────────────────────────────────────
+function ThumbnailCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [hover, setHover] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [uploadSrc, setUploadSrc] = useState('')
+  const [showCropper, setShowCropper] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setUploadSrc(url)
+    setShowCropper(true)
+    e.target.value = ''
+  }
+
+  const handleCropConfirm = (dataUrl: string) => {
+    onChange(dataUrl)
+    setShowCropper(false)
+    setUploadSrc('')
+    setPanelOpen(false)
+  }
+
+  return (
+    <>
+      {showCropper && uploadSrc && (
+        <ImageCropModal
+          src={uploadSrc}
+          aspectRatio={3 / 2}
+          onConfirm={handleCropConfirm}
+          onCancel={() => { setShowCropper(false); setUploadSrc('') }}
+        />
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* 缩略图预览（无封面时用缺省图） */}
+        <div
+          style={{
+            position: 'relative', width: 96, height: 64, borderRadius: 4, overflow: 'hidden',
+            background: '#374151',
+            backgroundImage: `url(${value || THUMB_DEFAULT})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            flexShrink: 0, cursor: 'pointer',
+            border: panelOpen ? '2px solid #1677FF' : '2px solid transparent',
+            transition: 'border-color 0.15s',
+          }}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          onClick={() => setPanelOpen((v) => !v)}
+        >
+          {/* 无自定义封面时显示"缺省图"标记 */}
+          {!value && (
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.45)', padding: '2px 0', textAlign: 'center' }}>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)' }}>默认封面</span>
+            </div>
+          )}
+          {(hover || panelOpen) && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 10, color: '#fff', fontWeight: 500 }}>更换封面</span>
+            </div>
+          )}
+        </div>
+
+        {/* 编辑面板 */}
+        {panelOpen && (
+          <div style={{
+            background: '#fff', border: '1px solid #E5E7EB', borderRadius: 6,
+            padding: '8px', display: 'flex', flexDirection: 'column', gap: 6,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10,
+            width: 160, position: 'absolute',
+          }}>
+            {/* 上传并裁切 */}
+            <Button
+              size="small"
+              icon={<Plus size={11} />}
+              style={{ fontSize: 11, height: 26 }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              上传图片（可裁切）
+            </Button>
+
+            <Button
+              size="small" type="text"
+              style={{ fontSize: 11, height: 22, color: '#9CA3AF' }}
+              onClick={() => setPanelOpen(false)}
+            >
+              取消
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────
 // Collection Grid Editor (Form 2)
-// Name · Link · Thumbnail (editable) — grid view
+// 紧凑行列表：小缩略图 · 名称 · 链接 · 操作
 // ─────────────────────────────────────────────
 function CollectionGridEditor({
   mod,
   onChange,
   onEditCollection,
+  available,
 }: {
   mod: CollectionGridModule
   onChange: (m: CollectionGridModule) => void
   onEditCollection: (col: CollectionEntry) => void
+  available: AvailableCollection[]
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-
   const updateCollection = (id: string, patch: Partial<CollectionEntry>) => {
-    onChange({
-      ...mod,
-      collections: mod.collections.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    })
+    onChange({ ...mod, collections: mod.collections.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, alignItems: 'start' }}>
-        {mod.collections.map((col) => (
-          <div
-            key={col.id}
-            style={{
-              border: editingId === col.id ? '2px solid #4F46E5' : '1px solid #E5E7EB',
-              borderRadius: 8,
-              overflow: 'hidden',
-              transition: 'border-color 0.15s',
-            }}
-          >
-            {/* Thumbnail */}
-            <div
-              style={{
-                position: 'relative',
-                aspectRatio: '16/9',
-                background: col.coverUrl ? '#374151' : '#F3F4F6',
-                backgroundImage: col.coverUrl ? `url(${col.coverUrl})` : 'none',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                cursor: 'pointer',
-              }}
-              onClick={() => setEditingId(editingId === col.id ? null : col.id)}
-            >
-              {!col.coverUrl && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <ImageIcon size={20} color="#D1D5DB" />
-                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>No cover</span>
-                </div>
-              )}
-              {/* Edit cover overlay */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'rgba(0,0,0,0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  opacity: 0,
-                  transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0' }}
-              >
-                <Button
-                  size="small"
-                  icon={<ImageIcon size={12} />}
-                  style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 6, border: 'none', fontSize: 11 }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const url = window.prompt('Enter cover image URL:', col.coverUrl || '')
-                    if (url !== null) updateCollection(col.id, { coverUrl: url })
-                  }}
-                >
-                  Change Cover
-                </Button>
-              </div>
-            </div>
-
-            {/* Info */}
-            <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {editingId === col.id ? (
-                <Input
-                  size="small"
-                  value={col.name}
-                  autoFocus
-                  style={{ borderRadius: 4, fontWeight: 600 }}
-                  onChange={(e) => updateCollection(col.id, { name: e.target.value })}
-                  onBlur={() => setEditingId(null)}
-                  onPressEnter={() => setEditingId(null)}
-                />
-              ) : (
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
-                  onClick={() => setEditingId(col.id)}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', flex: 1 }}>{col.name}</span>
-                  <Pencil size={10} color="#D1D5DB" />
-                </div>
-              )}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <LinkIcon size={9} color="#9CA3AF" style={{ flexShrink: 0 }} />
-                <Input
-                  size="small"
-                  value={col.link}
-                  placeholder="/collections/..."
-                  style={{ borderRadius: 4, fontSize: 10, padding: '0 4px', height: 20 }}
-                  onChange={(e) => updateCollection(col.id, { link: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-                <span style={{ fontSize: 10, color: '#9CA3AF' }}>
-                  {col.articlesCount} articles · {formatViews(col.viewsCount)} views
-                </span>
-                <Space size={0}>
-                  <Tooltip title="Manage articles">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<ExternalLink size={11} color="#4F46E5" />}
-                      onClick={() => onEditCollection(col)}
-                      style={{ padding: '0 3px', height: 20 }}
-                    />
-                  </Tooltip>
-                  <Popconfirm
-                    title={`Remove "${col.name}"?`}
-                    onConfirm={() =>
-                      onChange({ ...mod, collections: mod.collections.filter((c) => c.id !== col.id) })
-                    }
-                    okText="Remove"
-                    okButtonProps={{ danger: true }}
-                  >
-                    <Button type="text" size="small" icon={<Trash2 size={11} color="#EF4444" />} style={{ padding: '0 3px', height: 20 }} />
-                  </Popconfirm>
-                </Space>
-              </div>
-            </div>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {/* 表头 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '96px 0.7fr 1fr 90px 90px 64px 64px', gap: 8, padding: '4px 8px 8px', borderBottom: '1px solid #E5E7EB' }}>
+        {['封面', '集合页名称', '链接', '修改时间', '操作人', '文章数', ''].map((h) => (
+          <span key={h} style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>{h}</span>
         ))}
-
-        {/* Add button as a grid cell */}
-        <div
-          onClick={() => {
-            const newCol: CollectionEntry = {
-              id: `cg-${Date.now()}`,
-              name: 'New Collection',
-              link: '',
-              coverUrl: '',
-              articlesCount: 0,
-              viewsCount: 0,
-            }
-            onChange({ ...mod, collections: [...mod.collections, newCol] })
-            setEditingId(newCol.id)
-          }}
-          style={{
-            border: '2px dashed #E5E7EB',
-            borderRadius: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            aspectRatio: '1/1',
-            cursor: 'pointer',
-            color: '#9CA3AF',
-            fontSize: 12,
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLDivElement).style.borderColor = '#4F46E5'
-            ;(e.currentTarget as HTMLDivElement).style.color = '#4F46E5'
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLDivElement).style.borderColor = '#E5E7EB'
-            ;(e.currentTarget as HTMLDivElement).style.color = '#9CA3AF'
-          }}
-        >
-          <Plus size={20} />
-          <span>Add Collection</span>
-        </div>
       </div>
+
+      {/* 数据行 */}
+      {mod.collections.map((col) => (
+        <div
+          key={col.id}
+          style={{ display: 'grid', gridTemplateColumns: '96px 0.7fr 1fr 90px 90px 64px 64px', gap: 8, alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid #F3F4F6' }}
+        >
+          {/* 缩略图 */}
+          <div style={{ position: 'relative' }}>
+            <ThumbnailCell
+              value={col.coverUrl || ''}
+              onChange={(v) => updateCollection(col.id, { coverUrl: v })}
+            />
+          </div>
+
+          {/* 名称列：替换图标在左 + 名称/选择器 */}
+          <CollectionReplacer
+            currentName={col.name}
+            available={available}
+            onReplace={(name, link) => updateCollection(col.id, { name, link })}
+          />
+
+          {/* 链接（只读） */}
+          <LinkDisplay value={col.link} />
+
+          {/* 修改时间 */}
+          <span style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>{col.addedAt ?? '—'}</span>
+
+          {/* 操作人 */}
+          <span style={{ fontSize: 11, color: '#6B7280' }}>{col.operator ?? '—'}</span>
+
+          {/* 文章数 */}
+          <span style={{ fontSize: 12, color: '#6B7280' }}>{col.articlesCount} 篇</span>
+
+          {/* 操作 */}
+          <Space size={2}>
+            <Tooltip title="管理集合页">
+              <Button type="text" size="small" icon={<ExternalLink size={13} color="#4F46E5" />} onClick={() => onEditCollection(col)} style={{ padding: '0 4px' }} />
+            </Tooltip>
+            <Popconfirm
+              title={`确认移除「${col.name}」？`}
+              onConfirm={() => onChange({ ...mod, collections: mod.collections.filter((c) => c.id !== col.id) })}
+              okText="移除" cancelText="取消" okButtonProps={{ danger: true }}
+            >
+              <Button type="text" size="small" icon={<Trash2 size={13} color="#EF4444" />} style={{ padding: '0 4px' }} />
+            </Popconfirm>
+          </Space>
+        </div>
+      ))}
+
+      {/* 添加 */}
+      <AddCollectionRow
+        available={available}
+        onAdd={(name, link) => {
+          const newCol: CollectionEntry = {
+            id: `cg-${Date.now()}`, name, link, coverUrl: '', articlesCount: 0, viewsCount: 0,
+            addedAt: new Date().toISOString().slice(0, 10),
+            operator: 'Admin',
+          }
+          onChange({ ...mod, collections: [...mod.collections, newCol] })
+        }}
+      />
     </div>
   )
 }
@@ -387,9 +538,9 @@ function CollectionGridEditor({
 // ─────────────────────────────────────────────
 function PostGridEditor({ mod, onChange }: { mod: PostGridModule; onChange: (m: PostGridModule) => void }) {
   const layoutOptions: { value: PostGridLayout; label: string }[] = [
-    { value: '2-per-row', label: '2 per row' },
-    { value: '3-per-row', label: '3 per row' },
-    { value: '6-per-row', label: '6 per row' },
+    { value: '2-per-row', label: '每行 2 列' },
+    { value: '3-per-row', label: '每行 3 列' },
+    { value: '6-per-row', label: '每行 6 列' },
   ]
   const cols = mod.layout === '6-per-row' ? 6 : mod.layout === '3-per-row' ? 3 : 2
   const previewCols = Math.min(cols, 4)
@@ -397,7 +548,7 @@ function PostGridEditor({ mod, onChange }: { mod: PostGridModule; onChange: (m: 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>LAYOUT</span>
+        <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>布局</span>
         <Segmented
           size="small"
           value={mod.layout}
@@ -435,11 +586,11 @@ function PostGridEditor({ mod, onChange }: { mod: PostGridModule; onChange: (m: 
         icon={<Plus size={14} />}
         style={{ borderRadius: 6 }}
         onClick={() => {
-          const newPost: PostEntry = { id: `pg-${Date.now()}`, title: 'New Post', thumbnailUrl: '', link: '' }
+          const newPost: PostEntry = { id: `pg-${Date.now()}`, title: '新帖子', thumbnailUrl: '', link: '' }
           onChange({ ...mod, posts: [...mod.posts, newPost] })
         }}
       >
-        Add Post
+        添加帖子
       </Button>
     </div>
   )
@@ -511,6 +662,14 @@ export default function TabEditPage() {
   const params = useParams()
   const tabId = params.id as string
 
+  const { pages: collectionPages } = useCollectionPages()
+  // 当前可选集合页列表（供替换下拉使用）
+  const availableCollections: AvailableCollection[] = collectionPages.map((p) => ({
+    id: p.id,
+    name: p.name,
+    link: p.link,
+  }))
+
   const tabInfo = initialTabRoutes.find((t) => t.id === tabId)
   const [modules, setModules] = useState<ContentModule[]>(tabId === '2' ? guidesModules : [])
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -518,9 +677,7 @@ export default function TabEditPage() {
   const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor')
   const [messageApi, contextHolder] = message.useMessage()
 
-  const dragItemId = useRef<string | null>(null)
-  const dragOverId = useRef<string | null>(null)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
 
   const toggleCollapse = useCallback((modId: string) => {
     setModules((prev) => prev.map((m) => m.id === modId ? { ...m, collapsed: !m.collapsed } : m))
@@ -532,27 +689,18 @@ export default function TabEditPage() {
 
   const deleteModule = useCallback((modId: string) => {
     setModules((prev) => prev.filter((m) => m.id !== modId))
-    messageApi.success('Module deleted')
+    messageApi.success('模块已删除')
   }, [messageApi])
 
-  const handleDragStart = useCallback((id: string) => { dragItemId.current = id; setDraggingId(id) }, [])
-  const handleDragOver = useCallback((e: React.DragEvent, id: string) => { e.preventDefault(); dragOverId.current = id }, [])
-  const handleDragEnd = useCallback(() => {
-    const fromId = dragItemId.current
-    const toId = dragOverId.current
-    setDraggingId(null)
-    if (!fromId || !toId || fromId === toId) return
+  const moveModule = useCallback((id: string, dir: 'up' | 'down') => {
     setModules((prev) => {
       const items = [...prev]
-      const fromIdx = items.findIndex((m) => m.id === fromId)
-      const toIdx = items.findIndex((m) => m.id === toId)
-      if (fromIdx === -1 || toIdx === -1) return prev
-      const [moved] = items.splice(fromIdx, 1)
-      items.splice(toIdx, 0, moved)
+      const idx = items.findIndex((m) => m.id === id)
+      const target = dir === 'up' ? idx - 1 : idx + 1
+      if (target < 0 || target >= items.length) return prev
+      ;[items[idx], items[target]] = [items[target], items[idx]]
       return items.map((m, i) => ({ ...m, sortOrder: i + 1 }))
     })
-    dragItemId.current = null
-    dragOverId.current = null
   }, [])
 
   const addModule = useCallback((type: ContentModule['type']) => {
@@ -568,12 +716,18 @@ export default function TabEditPage() {
     }
     setModules((prev) => [...prev, newMod])
     setAddModalOpen(false)
-    messageApi.success('Module added')
+    messageApi.success('模块已添加')
   }, [modules.length, messageApi])
 
   const handleEditCollection = useCallback((col: CollectionEntry) => {
-    messageApi.info(`→ Level 3: Manage articles in "${col.name}" (coming soon)`)
-  }, [messageApi])
+    // 通过链接匹配后台集合页 id，跳转到集合页管理
+    const matched = collectionPages.find((p) => p.link === col.link)
+    if (matched) {
+      router.push(`/collection-pages/${matched.id}`)
+    } else {
+      messageApi.warning(`未找到对应的集合页（${col.link}），请先在集合页管理中创建`)
+    }
+  }, [collectionPages, router, messageApi])
 
   const getTypeIcon = (type: ContentModule['type']) => {
     if (type === 'collection-list') return <List size={14} />
@@ -591,18 +745,13 @@ export default function TabEditPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <Breadcrumb items={[
-            { title: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Home size={14} /> Home</span> },
-            { title: <a onClick={() => router.push('/tab-route')}>Tab Route</a> },
-            { title: tabInfo?.name || 'Edit' },
+            { title: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Home size={14} /> 首页</span> },
+            { title: <a onClick={() => router.push('/tab-route')}>分区管理</a> },
+            { title: tabInfo?.name || '编辑' },
           ]} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Button type="text" icon={<ArrowLeft size={18} />} onClick={() => router.push('/tab-route')} style={{ padding: '4px 8px' }} />
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
-            {tabInfo && (
-              <Tag style={{ background: MODULE_TYPE_CONFIG['collection-grid'].bg, color: MODULE_TYPE_CONFIG['collection-grid'].color, border: 'none', borderRadius: 6, fontSize: 11 }}>
-                {tabInfo.type}
-              </Tag>
-            )}
           </div>
         </div>
         <Space size={8}>
@@ -610,7 +759,7 @@ export default function TabEditPage() {
             size="small"
             value={viewMode}
             onChange={(v) => setViewMode(v as 'editor' | 'preview')}
-            options={[{ value: 'editor', label: 'Editor' }, { value: 'preview', label: 'Preview' }]}
+            options={[{ value: 'editor', label: '编辑' }, { value: 'preview', label: '预览' }]}
           />
           {viewMode === 'editor' && (
             <Button
@@ -618,9 +767,9 @@ export default function TabEditPage() {
               icon={<Plus size={14} />}
               size="small"
               onClick={() => setAddModalOpen(true)}
-              style={{ background: '#4F46E5', borderRadius: 6, fontWeight: 500 }}
+              style={{ borderRadius: 6, fontWeight: 500 }}
             >
-              Add Module
+              添加模块
             </Button>
           )}
         </Space>
@@ -629,23 +778,20 @@ export default function TabEditPage() {
       {/* Body */}
       {viewMode === 'editor' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {modules.map((mod) => {
+          {modules.map((mod, modIndex) => {
             const cfg = MODULE_TYPE_CONFIG[mod.type]
             const isCollapsed = mod.collapsed
+            const isFirst = modIndex === 0
+            const isLast = modIndex === modules.length - 1
             return (
               <div
                 key={mod.id}
-                draggable
-                onDragStart={() => handleDragStart(mod.id)}
-                onDragOver={(e) => handleDragOver(e, mod.id)}
-                onDragEnd={handleDragEnd}
                 style={{
                   background: '#fff',
                   borderRadius: 10,
                   border: selectedPreview === mod.id ? '2px solid #4F46E5' : '1px solid #E5E7EB',
                   overflow: 'hidden',
-                  opacity: draggingId === mod.id ? 0.4 : 1,
-                  transition: 'opacity 0.15s, border-color 0.15s',
+                  transition: 'border-color 0.15s',
                 }}
               >
                 {/* Module Header */}
@@ -656,24 +802,54 @@ export default function TabEditPage() {
                     gap: 8,
                     padding: '10px 14px',
                     background: selectedPreview === mod.id ? '#EEF2FF' : '#FAFAFA',
-                    cursor: 'grab',
                     borderBottom: isCollapsed ? 'none' : '1px solid #F3F4F6',
                   }}
                 >
-                  <GripVertical size={14} color="#9CA3AF" style={{ flexShrink: 0 }} />
+                  {/* 上下移动箭头 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, flexShrink: 0 }}>
+                    <Button
+                      type="text" size="small"
+                      icon={<ChevronUp size={12} color={isFirst ? '#D1D5DB' : '#6B7280'} />}
+                      disabled={isFirst}
+                      style={{ padding: '0 2px', height: 16, width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => moveModule(mod.id, 'up')}
+                    />
+                    <Button
+                      type="text" size="small"
+                      icon={<ChevronDown size={12} color={isLast ? '#D1D5DB' : '#6B7280'} />}
+                      disabled={isLast}
+                      style={{ padding: '0 2px', height: 16, width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => moveModule(mod.id, 'down')}
+                    />
+                  </div>
                   <Tag style={{ background: cfg.bg, color: cfg.color, border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                     {cfg.label}
                   </Tag>
-                  <Input
-                    size="small"
-                    value={mod.title}
-                    variant="borderless"
-                    style={{ fontWeight: 600, fontSize: 14, color: '#111827', flex: 1, padding: '0 4px' }}
-                    onChange={(e) => updateModule({ ...mod, title: e.target.value })}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                  {editingTitleId === mod.id ? (
+                      <Input
+                        size="small"
+                        value={mod.title}
+                        autoFocus
+                        variant="borderless"
+                        style={{ fontWeight: 600, fontSize: 14, color: '#111827', flex: 1, padding: '0 4px' }}
+                        onChange={(e) => updateModule({ ...mod, title: e.target.value })}
+                        onBlur={() => setEditingTitleId(null)}
+                        onPressEnter={() => setEditingTitleId(null)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <div
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, cursor: 'text', padding: '0 4px', minWidth: 0 }}
+                        onClick={(e) => { e.stopPropagation(); setEditingTitleId(mod.id) }}
+                      >
+                        <span style={{ fontWeight: 600, fontSize: 14, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {mod.title}
+                        </span>
+                        <Pencil size={11} color="#C0C8D0" style={{ flexShrink: 0 }} />
+                      </div>
+                    )}
                   <Space size={4}>
-                    <Tooltip title="Preview">
+                    <Tooltip title="预览">
                       <Button
                         type="text"
                         size="small"
@@ -681,7 +857,7 @@ export default function TabEditPage() {
                         onClick={() => setSelectedPreview(selectedPreview === mod.id ? null : mod.id)}
                       />
                     </Tooltip>
-                    <Popconfirm title="Delete this module?" onConfirm={() => deleteModule(mod.id)} okText="Delete" okButtonProps={{ danger: true }}>
+                    <Popconfirm title="确认删除该模块？" onConfirm={() => deleteModule(mod.id)} okText="删除" cancelText="取消" okButtonProps={{ danger: true }}>
                       <Button type="text" size="small" icon={<Trash2 size={14} color="#EF4444" />} />
                     </Popconfirm>
                     <Button
@@ -707,10 +883,10 @@ export default function TabEditPage() {
                 {!isCollapsed && (
                   <div style={{ padding: '12px 14px' }}>
                     {mod.type === 'collection-list' && (
-                      <CollectionListEditor mod={mod} onChange={(m) => updateModule(m)} onEditCollection={handleEditCollection} />
+                      <CollectionListEditor mod={mod} onChange={(m) => updateModule(m)} onEditCollection={handleEditCollection} available={availableCollections} />
                     )}
                     {mod.type === 'collection-grid' && (
-                      <CollectionGridEditor mod={mod} onChange={(m) => updateModule(m)} onEditCollection={handleEditCollection} />
+                      <CollectionGridEditor mod={mod} onChange={(m) => updateModule(m)} onEditCollection={handleEditCollection} available={availableCollections} />
                     )}
                     {mod.type === 'post-grid' && (
                       <PostGridEditor mod={mod} onChange={(m) => updateModule(m)} />
@@ -724,15 +900,15 @@ export default function TabEditPage() {
           {modules.length === 0 && (
             <div style={{ textAlign: 'center', padding: 48, color: '#9CA3AF', background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB' }}>
               <LayoutGrid size={40} color="#D1D5DB" style={{ margin: '0 auto 12px' }} />
-              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>No modules yet</div>
-              <div style={{ fontSize: 13 }}>Click &ldquo;Add Module&rdquo; to get started</div>
+              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>暂无模块</div>
+              <div style={{ fontSize: 13 }}>点击「添加模块」开始配置</div>
             </div>
           )}
         </div>
       ) : (
         <div style={{ background: '#111827', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #1F2937', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF' }}>LIVE PREVIEW</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF' }}>实时预览</span>
             <div style={{ display: 'flex', gap: 4 }}>
               {['#EF4444', '#F59E0B', '#10B981'].map((c) => (
                 <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />
@@ -760,7 +936,7 @@ export default function TabEditPage() {
       )}
 
       {/* Add Module Modal */}
-      <Modal title="Add Module" open={addModalOpen} onCancel={() => setAddModalOpen(false)} footer={null} width={520}>
+      <Modal title="添加模块" open={addModalOpen} onCancel={() => setAddModalOpen(false)} footer={null} width={520}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
           {(Object.entries(MODULE_TYPE_CONFIG) as [ContentModule['type'], typeof MODULE_TYPE_CONFIG[ContentModule['type']]][]).map(([type, cfg]) => (
             <div
