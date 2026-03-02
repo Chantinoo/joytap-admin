@@ -2,10 +2,11 @@
 
 import React, { useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Breadcrumb, message, Tooltip, Modal, Input, Popconfirm, Space } from 'antd'
-import { ArrowLeft, Home, Eye, Calendar, User, Pencil, Plus, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X, GripVertical } from 'lucide-react'
+import { Button, message, Tooltip, Modal, Input, Popconfirm, Space } from 'antd'
+import { Eye, Calendar, User, Pencil, Plus, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X, GripVertical } from 'lucide-react'
 import { Article } from '../../types'
 import ImageCropModal from '../../components/ImageCropModal'
+import PageBreadcrumb from '../../components/PageBreadcrumb'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
 
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=240&fit=crop&sat=-100'
@@ -194,23 +195,21 @@ export default function CollectionPageDetail() {
         onChange={handleFileChange}
       />
 
-      {/* 页头 */}
+      {/* 面包屑：独立于页头 */}
+      <PageBreadcrumb
+        items={[
+          { label: '论坛管理', href: '/forum/list' },
+          { label: '集合页管理', href: '/collection-pages' },
+          { label: collectionPage.name },
+        ]}
+      />
+
+      {/* 页头：标题 + 新增按钮 */}
       <div style={{ background: '#fff', borderRadius: 6, padding: '14px 20px', border: '1px solid #E5E7EB' }}>
-        <Breadcrumb
-          style={{ marginBottom: 10 }}
-          items={[
-            { title: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Home size={13} />首页</span> },
-            { title: <a onClick={() => router.push('/collection-pages')}>集合页管理</a> },
-            { title: collectionPage.name },
-          ]}
-        />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Button type="text" icon={<ArrowLeft size={16} />} onClick={() => router.push('/collection-pages')} style={{ padding: '4px 8px' }} />
-            <div>
-              <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1F2937', margin: 0 }}>{collectionPage.name}</h1>
-              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>共 {articles.length} 篇帖子</p>
-            </div>
+          <div>
+            <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1F2937', margin: 0 }}>{collectionPage.name}</h1>
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>共 {articles.length} 篇帖子</p>
           </div>
           <Button
             type="primary"

@@ -8,6 +8,7 @@ import { FileText, Pencil, Plus, Trash2 } from 'lucide-react'
 import { CollectionPageData } from '../types'
 import { useCollectionPages } from '../context/CollectionPagesContext'
 import GameFilter from '../components/GameFilter'
+import PageBreadcrumb from '../components/PageBreadcrumb'
 
 function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [editing, setEditing] = useState(false)
@@ -159,6 +160,8 @@ export default function CollectionPagesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {contextHolder}
+
+      <PageBreadcrumb items={[{ label: '论坛管理', href: '/forum/list' }, { label: '集合页管理' }]} />
 
       <GameFilter />
 

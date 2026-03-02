@@ -9,20 +9,17 @@ import {
   Modal,
   Input,
   message,
-  Breadcrumb,
   Tooltip,
   Popconfirm,
   Segmented,
   Select,
 } from 'antd'
 import {
-  ArrowLeft,
   Plus,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   Trash2,
-  Home,
   List,
   Grid2x2,
   LayoutGrid,
@@ -31,7 +28,6 @@ import {
   Image as ImageIcon,
   X,
   ExternalLink,
-
 } from 'lucide-react'
 import {
   ContentModule,
@@ -46,6 +42,7 @@ import {
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
 import ImageCropModal from '../../components/ImageCropModal'
+import PageBreadcrumb from '../../components/PageBreadcrumb'
 
 function formatViews(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}w`
@@ -744,15 +741,14 @@ export default function TabEditPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <Breadcrumb items={[
-            { title: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Home size={14} /> 首页</span> },
-            { title: <a onClick={() => router.push('/tab-route')}>分区管理</a> },
-            { title: tabInfo?.name || '编辑' },
-          ]} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Button type="text" icon={<ArrowLeft size={18} />} onClick={() => router.push('/tab-route')} style={{ padding: '4px 8px' }} />
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
-          </div>
+          <PageBreadcrumb
+            items={[
+              { label: '论坛管理', href: '/forum/list' },
+              { label: '分区管理', href: '/tab-route' },
+              { label: tabInfo?.name || '编辑' },
+            ]}
+          />
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
         </div>
         <Space size={8}>
           <Segmented

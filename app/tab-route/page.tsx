@@ -27,6 +27,7 @@ import {
 import { TabRoute } from '../types'
 import { initialTabRoutes } from '../data/mockData'
 import GameFilter from '../components/GameFilter'
+import PageBreadcrumb from '../components/PageBreadcrumb'
 import dayjs from 'dayjs'
 
 function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -290,14 +291,16 @@ export default function TabRoutePage() {
         }
         return (
           <Space size={8}>
-            <Button
-              type="link"
-              size="small"
-              style={{ fontSize: 12, padding: 0 }}
-              onClick={() => handleEdit(record)}
-            >
-              管理内容
-            </Button>
+            <Tooltip title="进入配置集合页与模块顺序">
+              <Button
+                type="link"
+                size="small"
+                style={{ fontSize: 12, padding: 0 }}
+                onClick={() => handleEdit(record)}
+              >
+                管理内容
+              </Button>
+            </Tooltip>
             <Popconfirm
               title="确认删除该分区？"
               description={`确定要删除「${record.name}」吗？`}
@@ -324,6 +327,8 @@ export default function TabRoutePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {contextHolder}
+
+      <PageBreadcrumb items={[{ label: '论坛管理', href: '/forum/list' }, { label: '分区管理' }]} />
 
       <GameFilter />
 
