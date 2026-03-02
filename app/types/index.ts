@@ -126,3 +126,23 @@ export const MODULE_TYPE_CONFIG: Record<
     description: '帖子以 2 / 3 / 6 列网格布局展示',
   },
 }
+
+// ── 下载按钮配置（按渠道） ──
+
+export interface DownloadChannelConfig {
+  id: string
+  /** 渠道标识，默认渠道为 google-play | app-store | pc，自定义为 custom-xxx */
+  key: string
+  /** 渠道显示名称（如 Google Play、App Store、PC） */
+  channelName: string
+  /** 按钮类型（前台展示，如：下载 / 预约 / 获取） */
+  buttonName: string
+  /** 跳转链接 */
+  jumpLink: string
+  /** 操作人 */
+  operator?: string
+  /** 操作时间（最后修改时间） */
+  updatedAt?: string
+  /** 是否系统默认渠道（不可删除） */
+  isDefault?: boolean
+}

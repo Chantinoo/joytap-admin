@@ -28,6 +28,7 @@ const MENU: MenuItem[] = [
       { label: '公告', key: '/forum/announcement' },
       { label: '分区管理', key: '/tab-route' },
       { label: '集合页管理', key: '/collection-pages' },
+      { label: '下载按钮', key: '/download-button' },
     ],
   },
   { label: '内容管理', key: '/content', icon: FileText, children: [] },
