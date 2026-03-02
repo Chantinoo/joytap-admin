@@ -3,6 +3,7 @@ import { AntdRegistry } from '@ant-design/nextjs-registry'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import { CollectionPagesProvider } from './context/CollectionPagesContext'
+import { LeaveGuardProvider } from './context/LeaveGuardContext'
 import './globals.css'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -10,6 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <body>
         <AntdRegistry>
+          <LeaveGuardProvider>
           <CollectionPagesProvider>
             <div style={{ display: 'flex', height: '100vh', background: '#F5F7FA' }}>
               <Sidebar />
@@ -21,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
           </CollectionPagesProvider>
+          </LeaveGuardProvider>
         </AntdRegistry>
       </body>
     </html>

@@ -16,6 +16,7 @@ import {
 } from 'antd'
 import {
   Plus,
+  Save,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -41,6 +42,7 @@ import {
 } from '../../types'
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
+import { useLeaveGuard } from '../../context/LeaveGuardContext'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
 
@@ -668,13 +670,39 @@ export default function TabEditPage() {
   }))
 
   const tabInfo = initialTabRoutes.find((t) => t.id === tabId)
-  const [modules, setModules] = useState<ContentModule[]>(tabId === '2' ? guidesModules : [])
+  const initialModules = tabId === '2' ? guidesModules : []
+  const [modules, setModules] = useState<ContentModule[]>(initialModules)
+  const savedModulesRef = useRef<string>(JSON.stringify(initialModules))
+  const isDirty = JSON.stringify(modules) !== savedModulesRef.current
+
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [selectedPreview, setSelectedPreview] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor')
   const [messageApi, contextHolder] = message.useMessage()
 
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
+
+  const handleSavePartition = useCallback(() => {
+    savedModulesRef.current = JSON.stringify(modules)
+    messageApi.success('保存成功，前台将按当前配置展示')
+  }, [modules, messageApi])
+
+  const leaveGuard = useLeaveGuard()
+  useEffect(() => {
+    if (!leaveGuard) return
+    leaveGuard.setGuard(() => isDirty, handleSavePartition)
+    return () => leaveGuard.clearGuard()
+  }, [leaveGuard, isDirty, handleSavePartition])
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
 
   const toggleCollapse = useCallback((modId: string) => {
     setModules((prev) => prev.map((m) => m.id === modId ? { ...m, collapsed: !m.collapsed } : m))
@@ -717,14 +745,14 @@ export default function TabEditPage() {
   }, [modules.length, messageApi])
 
   const handleEditCollection = useCallback((col: CollectionEntry) => {
-    // 通过链接匹配后台集合页 id，跳转到集合页管理
     const matched = collectionPages.find((p) => p.link === col.link)
-    if (matched) {
-      router.push(`/collection-pages/${matched.id}`)
-    } else {
+    if (!matched) {
       messageApi.warning(`未找到对应的集合页（${col.link}），请先在集合页管理中创建`)
+      return
     }
-  }, [collectionPages, router, messageApi])
+    const go = () => router.push(`/collection-pages/${matched.id}`)
+    leaveGuard?.checkBeforeLeave(go) ?? go()
+  }, [collectionPages, router, messageApi, leaveGuard])
 
   const getTypeIcon = (type: ContentModule['type']) => {
     if (type === 'collection-list') return <List size={14} />
@@ -757,6 +785,17 @@ export default function TabEditPage() {
             onChange={(v) => setViewMode(v as 'editor' | 'preview')}
             options={[{ value: 'editor', label: '编辑' }, { value: 'preview', label: '预览' }]}
           />
+          {viewMode === 'editor' && isDirty && (
+            <Button
+              type="primary"
+              icon={<Save size={14} />}
+              size="small"
+              onClick={handleSavePartition}
+              style={{ borderRadius: 6, fontWeight: 500 }}
+            >
+              保存
+            </Button>
+          )}
           {viewMode === 'editor' && (
             <Button
               type="primary"

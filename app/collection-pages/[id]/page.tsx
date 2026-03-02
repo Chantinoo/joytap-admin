@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, message, Tooltip, Modal, Input, Popconfirm, Space } from 'antd'
-import { Eye, Calendar, User, Pencil, Plus, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X, GripVertical } from 'lucide-react'
+import { Eye, Calendar, User, Pencil, Plus, Save, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X, GripVertical } from 'lucide-react'
 import { Article } from '../../types'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
+import { useLeaveGuard } from '../../context/LeaveGuardContext'
 
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=240&fit=crop&sat=-100'
 
@@ -24,8 +25,42 @@ export default function CollectionPageDetail() {
   const { pages, updateArticles } = useCollectionPages()
   const collectionPage = pages.find((p) => p.id === pageId)
 
-  const [articles, setArticles] = useState<Article[]>(collectionPage?.articles ?? [])
+  const initialArticles = collectionPage?.articles ?? []
+  const [articles, setArticles] = useState<Article[]>(initialArticles)
+  const savedArticlesRef = useRef<string>(JSON.stringify(initialArticles))
+  useEffect(() => {
+    if (collectionPage) {
+      const next = collectionPage.articles ?? []
+      setArticles(next)
+      savedArticlesRef.current = JSON.stringify(next)
+    }
+  }, [collectionPage?.id])
+  const isDirty = JSON.stringify(articles) !== savedArticlesRef.current
+
   const [messageApi, contextHolder] = message.useMessage()
+
+  const handleSaveCollection = () => {
+    updateArticles(pageId, articles)
+    savedArticlesRef.current = JSON.stringify(articles)
+    messageApi.success('保存成功，前台将按当前配置展示')
+  }
+
+  const leaveGuard = useLeaveGuard()
+  useEffect(() => {
+    if (!leaveGuard) return
+    leaveGuard.setGuard(() => isDirty, handleSaveCollection)
+    return () => leaveGuard.clearGuard()
+  }, [leaveGuard, isDirty, handleSaveCollection])
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
 
   // ── 拖拽排序状态 ──
   const dragIndexRef = useRef<number | null>(null)
@@ -49,7 +84,6 @@ export default function CollectionPageDetail() {
     const [moved] = next.splice(from, 1)
     next.splice(index, 0, moved)
     setArticles(next)
-    updateArticles(pageId, next)
     dragIndexRef.current = null
     setDragOverIndex(null)
   }
@@ -145,10 +179,8 @@ export default function CollectionPageDetail() {
         viewsCount: 0,
         publishedAt: new Date().toISOString().slice(0, 10),
       }
-      const next = [...articles, newArticle]
-      setArticles(next)
-      updateArticles(pageId, next)
-      messageApi.success('帖子已添加')
+      setArticles((prev) => [...prev, newArticle])
+      messageApi.success('已添加，请点击保存使前台生效')
     } else if (editModal) {
       const next = articles.map((a) =>
         a.id === (editModal as Article).id
@@ -156,18 +188,15 @@ export default function CollectionPageDetail() {
           : a
       )
       setArticles(next)
-      updateArticles(pageId, next)
-      messageApi.success('帖子已更新')
+      messageApi.success('已更新，请点击保存使前台生效')
     }
     setEditModal(null)
   }
 
   // ── 删除 ──
   const handleDelete = (id: string) => {
-    const next = articles.filter((a) => a.id !== id)
-    setArticles(next)
-    updateArticles(pageId, next)
-    messageApi.success('已删除')
+    setArticles((prev) => prev.filter((a) => a.id !== id))
+    messageApi.success('已移除，请点击保存使前台生效')
   }
 
   const isNew = editModal === 'new'
@@ -204,21 +233,33 @@ export default function CollectionPageDetail() {
         ]}
       />
 
-      {/* 页头：标题 + 新增按钮 */}
+      {/* 页头：标题 + 保存 + 新增按钮 */}
       <div style={{ background: '#fff', borderRadius: 6, padding: '14px 20px', border: '1px solid #E5E7EB' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1F2937', margin: 0 }}>{collectionPage.name}</h1>
             <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>共 {articles.length} 篇帖子</p>
           </div>
-          <Button
-            type="primary"
-            icon={<Plus size={14} />}
-            style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
-            onClick={openCreate}
-          >
-            新增帖子
-          </Button>
+          <Space size={8}>
+            {isDirty && (
+              <Button
+                type="primary"
+                icon={<Save size={14} />}
+                style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
+                onClick={handleSaveCollection}
+              >
+                保存
+              </Button>
+            )}
+            <Button
+              type="primary"
+              icon={<Plus size={14} />}
+              style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
+              onClick={openCreate}
+            >
+              新增帖子
+            </Button>
+          </Space>
         </div>
       </div>
 

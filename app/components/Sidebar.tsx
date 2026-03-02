@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { useLeaveGuard } from '../context/LeaveGuardContext'
 import {
   MessageSquare, FileText, User, Monitor, Shield,
   ChevronDown, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
@@ -38,7 +39,16 @@ const MENU: MenuItem[] = [
 export default function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
+  const leaveGuard = useLeaveGuard()
   const [collapsed, setCollapsed] = useState(false)
+
+  const navigateTo = (href: string) => {
+    if (leaveGuard?.checkBeforeLeave) {
+      leaveGuard.checkBeforeLeave(() => router.push(href))
+    } else {
+      router.push(href)
+    }
+  }
 
   const [openKeys, setOpenKeys] = useState<string[]>(() =>
     MENU
@@ -139,7 +149,7 @@ export default function Sidebar() {
               <div
                 key={item.key}
                 title={collapsed ? item.label : undefined}
-                onClick={() => router.push(item.key)}
+                onClick={() => navigateTo(item.key)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -202,7 +212,7 @@ export default function Sidebar() {
                 return (
                   <div
                     key={child.key}
-                    onClick={() => router.push(child.key)}
+                    onClick={() => navigateTo(child.key)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',

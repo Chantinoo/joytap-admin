@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
+import { useLeaveGuard } from '../context/LeaveGuardContext'
 
 export type BreadcrumbItem = { label: string; href?: string }
 
@@ -11,6 +12,15 @@ type Props = {
 
 export default function PageBreadcrumb({ items }: Props) {
   const router = useRouter()
+  const leaveGuard = useLeaveGuard()
+
+  const navigateTo = (href: string) => {
+    if (leaveGuard?.checkBeforeLeave) {
+      leaveGuard.checkBeforeLeave(() => router.push(href))
+    } else {
+      router.push(href)
+    }
+  }
 
   return (
     <div
@@ -30,7 +40,7 @@ export default function PageBreadcrumb({ items }: Props) {
                 href={item.href}
                 onClick={(e) => {
                   e.preventDefault()
-                  router.push(item.href!)
+                  navigateTo(item.href!)
                 }}
                 style={{ color: '#1677FF', textDecoration: 'none' }}
               >
