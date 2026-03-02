@@ -44,29 +44,12 @@ export const initialTabRoutes: TabRoute[] = [
 ]
 
 export const guidesModules: ContentModule[] = [
-  // ── Module 1: Hot Guides — Collection List (Form 1)
-  // Displayed as a left-image right-text list.
-  // Each item is a Collection (e.g. "General", "Beginner", "Redeem Codes" …)
-  {
-    id: 'mod-1',
-    type: 'collection-list',
-    title: '热门攻略',
-    sortOrder: 1,
-    collections: [
-      { id: 'cl-1', name: '综合攻略',   link: '/collection/1',  articlesCount: 156, viewsCount: 150000, addedAt: '2025-01-10', operator: 'Admin' },
-      { id: 'cl-2', name: '新手入门',   link: '/collection/2',  articlesCount: 48,  viewsCount: 89000,  addedAt: '2025-01-12', operator: 'Admin' },
-      { id: 'cl-3', name: '兑换码汇总', link: '/collection/3',  articlesCount: 12,  viewsCount: 47000,  addedAt: '2025-01-15', operator: 'User01' },
-      { id: 'cl-4', name: '版本更新',   link: '/collection/4',  articlesCount: 34,  viewsCount: 62000,  addedAt: '2025-02-01', operator: 'User01' },
-      { id: 'cl-5', name: '强度排行',   link: '/collection/5',  articlesCount: 9,   viewsCount: 38000,  addedAt: '2025-02-10', operator: 'Admin' },
-    ],
-  },
-
-  // ── Module 2: All Guides — Collection Grid (Form 2)
+  // ── Module 1: All Guides — Collection Grid (Form 2)（默认在上）
   {
     id: 'mod-2',
     type: 'collection-grid',
     title: '全部攻略',
-    sortOrder: 2,
+    sortOrder: 1,
     collections: [
       { id: 'cg-1', name: '武器攻略',  link: '/collection/6',  coverUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&h=120&fit=crop', articlesCount: 56, viewsCount: 47000, addedAt: '2025-01-10', operator: 'Admin' },
       { id: 'cg-2', name: '装备攻略',  link: '/collection/7',  coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop', articlesCount: 32, viewsCount: 29000, addedAt: '2025-01-11', operator: 'Admin' },
@@ -77,6 +60,22 @@ export const guidesModules: ContentModule[] = [
       { id: 'cg-7', name: '合成配方',  link: '/collection/12', coverUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200&h=120&fit=crop', articlesCount: 16, viewsCount: 6039,  addedAt: '2025-02-01', operator: 'User01' },
       { id: 'cg-8', name: '副本攻略',  link: '/collection/13', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=200&h=120&fit=crop', articlesCount: 12, viewsCount: 7763,  addedAt: '2025-02-05', operator: 'User01' },
       { id: 'cg-9', name: '防守技巧',  link: '/collection/14', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=200&h=120&fit=crop', articlesCount: 1,  viewsCount: 0,     addedAt: '2025-02-10', operator: 'Admin' },
+    ],
+  },
+
+  // ── Module 2: Hot Guides — Collection List (Form 1)
+  // Displayed as a left-image right-text list.
+  {
+    id: 'mod-1',
+    type: 'collection-list',
+    title: '热门攻略',
+    sortOrder: 2,
+    collections: [
+      { id: 'cl-1', name: '综合攻略',   link: '/collection/1',  articlesCount: 156, viewsCount: 150000, addedAt: '2025-01-10', operator: 'Admin' },
+      { id: 'cl-2', name: '新手入门',   link: '/collection/2',  articlesCount: 48,  viewsCount: 89000,  addedAt: '2025-01-12', operator: 'Admin' },
+      { id: 'cl-3', name: '兑换码汇总', link: '/collection/3',  articlesCount: 12,  viewsCount: 47000,  addedAt: '2025-01-15', operator: 'User01' },
+      { id: 'cl-4', name: '版本更新',   link: '/collection/4',  articlesCount: 34,  viewsCount: 62000,  addedAt: '2025-02-01', operator: 'User01' },
+      { id: 'cl-5', name: '强度排行',   link: '/collection/5',  articlesCount: 9,   viewsCount: 38000,  addedAt: '2025-02-10', operator: 'Admin' },
     ],
   },
 

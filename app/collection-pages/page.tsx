@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Table, Button, Tag, Input, Modal, Form, Popconfirm, message, Space, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { FileText, Pencil, Plus, Trash2 } from 'lucide-react'
+import { FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { CollectionPageData } from '../types'
 import { useCollectionPages } from '../context/CollectionPagesContext'
 import GameFilter from '../components/GameFilter'
@@ -54,8 +54,13 @@ export default function CollectionPagesPage() {
   const router = useRouter()
   const { pages, addPage, deletePage, updatePageName } = useCollectionPages()
   const [createOpen, setCreateOpen] = useState(false)
+  const [searchName, setSearchName] = useState('')
   const [form] = Form.useForm()
   const [messageApi, contextHolder] = message.useMessage()
+
+  const filteredPages = searchName.trim()
+    ? pages.filter((p) => p.name.toLowerCase().includes(searchName.trim().toLowerCase()))
+    : pages
 
   const genLink = () => {
     const maxN = pages.reduce((max, p) => {
@@ -173,14 +178,14 @@ export default function CollectionPagesPage() {
           justifyContent: 'space-between',
           alignItems: 'center',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h1 style={{ fontSize: 15, fontWeight: 600, color: '#1F2937', margin: 0 }}>集合页管理</h1>
-              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>管理各集合页内的帖子及封面图</p>
+              <Tag style={{ background: '#E6F4FF', color: '#1677FF', border: 'none', borderRadius: 10, fontSize: 11 }}>
+                {pages.length} 个
+              </Tag>
             </div>
-            <Tag style={{ background: '#E6F4FF', color: '#1677FF', border: 'none', borderRadius: 10, fontSize: 11 }}>
-              {pages.length} 个
-            </Tag>
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>管理各集合页内的帖子及封面图</p>
           </div>
           <Button
             type="primary"
@@ -192,8 +197,19 @@ export default function CollectionPagesPage() {
           </Button>
         </div>
 
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid #F3F4F6' }}>
+          <Input
+            placeholder="搜索集合页名称"
+            prefix={<Search size={14} color="#9CA3AF" />}
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            allowClear
+            style={{ width: 240, borderRadius: 6 }}
+          />
+        </div>
+
         <Table
-          dataSource={pages}
+          dataSource={filteredPages}
           columns={columns}
           rowKey="id"
           pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 个`, showSizeChanger: true }}
