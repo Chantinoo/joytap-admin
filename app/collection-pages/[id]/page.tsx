@@ -121,7 +121,7 @@ export default function CollectionPageDetail() {
   const openEdit = (article: Article) => {
     setDraftLink(article.link ?? '')
     const hasCustomCover = article.coverUrl && article.coverUrl !== DEFAULT_COVER
-    setCoverMode(hasCustomCover ? 'url' : 'auto')
+    setCoverMode(hasCustomCover ? 'upload' : 'auto')
     setDraftCoverUrl(hasCustomCover ? article.coverUrl : '')
     setUploadedSrc('')
     setCroppedCover('')
