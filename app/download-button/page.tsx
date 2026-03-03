@@ -761,7 +761,7 @@ function EditChannelModal({
   onCancel: () => void
 }) {
   const [channelName, setChannelName] = useState(record?.channelName ?? '')
-  const [buttonName, setButtonName] = useState<'预约' | '获取'>(record?.buttonName ?? '获取')
+  const [buttonName, setButtonName] = useState<'预约' | '获取'>((record?.buttonName ?? '获取') as '预约' | '获取')
   const [jumpLink, setJumpLink] = useState(record?.jumpLink ?? '')
 
   useEffect(() => {
