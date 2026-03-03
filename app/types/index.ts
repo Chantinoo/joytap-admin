@@ -129,16 +129,31 @@ export const MODULE_TYPE_CONFIG: Record<
 
 // ── 下载按钮配置（按渠道） ──
 
+/** 预约用户信息（由前台预约时写入，用于名单展示与群发） */
+export interface ReservedUserInfo {
+  id: string
+  nickname?: string
+  avatar?: string
+}
+
 export interface DownloadChannelConfig {
   id: string
   /** 渠道标识，默认渠道为 google-play | app-store | pc，自定义为 custom-xxx */
   key: string
   /** 渠道显示名称（如 Google Play、App Store、PC） */
   channelName: string
-  /** 按钮类型（前台展示，如：下载 / 预约 / 获取） */
+  /** 按钮状态：无按钮 / 预约 / 获取。预约时可填跳转链接与定时，定时到达后视为「获取」并开放链接 */
   buttonName: string
-  /** 跳转链接 */
+  /** 跳转链接。类型为「获取」时必填；类型为「预约」时选填，可与定时配合使用 */
   jumpLink: string
+  /** 定时转为「获取」的时间（仅类型为「预约」时有效），格式 YYYY-MM-DD HH:mm */
+  scheduledTime?: string
+  /** 已预约用户列表（用户在前台点击预约时写入，定时到达后按此列表群发通知；含昵称、头像等展示信息） */
+  reservedUsers?: ReservedUserInfo[]
+  /** 定时转为「获取」后群发通知的标题（仅类型为「预约」时使用） */
+  notificationTitle?: string
+  /** 定时转为「获取」后群发通知的描述/正文（仅类型为「预约」时使用） */
+  notificationMessage?: string
   /** 操作人 */
   operator?: string
   /** 操作时间（最后修改时间） */
