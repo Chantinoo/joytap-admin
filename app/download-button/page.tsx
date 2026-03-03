@@ -9,10 +9,22 @@ import GameFilter from '../components/GameFilter'
 import { useLeaveGuard } from '../context/LeaveGuardContext'
 import type { DownloadChannelConfig, ReservedUserInfo } from '../types'
 
-/** 渠道名称固定选项（仅允许从以下四项中选择） */
-const CHANNEL_NAME_OPTIONS = ['Google Play', 'App Store', 'PC', '华为应用市场']
+/** 渠道名称固定选项 */
+const CHANNEL_NAME_OPTIONS = ['Google Play', 'App Store', '官方 PC 客户端', 'Steam', '华为应用市场']
 
-/** 按钮状态固定选项：预约 / 获取 */
+/** 渠道名称 -> 类型 */
+const CHANNEL_TYPE_MAP: Record<string, 'Android' | 'ios' | 'PC' | '鸿蒙'> = {
+  'Google Play': 'Android',
+  'App Store': 'ios',
+  '官方 PC 客户端': 'PC',
+  Steam: 'PC',
+  '华为应用市场': '鸿蒙',
+}
+function getChannelType(channelName: string): 'Android' | 'ios' | 'PC' | '鸿蒙' {
+  return CHANNEL_TYPE_MAP[channelName] ?? 'Android'
+}
+
+/** 状态固定选项：预约 / 获取 */
 const BUTTON_NAME_OPTIONS = [
   { label: '预约', value: '预约' },
   { label: '获取', value: '获取' },
@@ -30,6 +42,7 @@ const DEFAULT_CHANNELS: DownloadChannelConfig[] = [
     id: 'ch-google-play',
     key: 'google-play',
     channelName: 'Google Play',
+    channelType: 'Android',
     buttonName: '获取',
     jumpLink: 'https://play.google.com/store/apps/details?id=xxx',
     scheduledTime: '2025-03-15 10:00',
@@ -65,6 +78,7 @@ const DEFAULT_CHANNELS: DownloadChannelConfig[] = [
     id: 'ch-app-store',
     key: 'app-store',
     channelName: 'App Store',
+    channelType: 'ios',
     buttonName: '预约',
     jumpLink: '',
     operator: MOCK_OPERATOR,
@@ -74,7 +88,19 @@ const DEFAULT_CHANNELS: DownloadChannelConfig[] = [
   {
     id: 'ch-pc',
     key: 'pc',
-    channelName: 'PC',
+    channelName: '官方 PC 客户端',
+    channelType: 'PC',
+    buttonName: '预约',
+    jumpLink: '',
+    operator: MOCK_OPERATOR,
+    updatedAt: '2025-02-28 10:00',
+    isDefault: true,
+  },
+  {
+    id: 'ch-steam',
+    key: 'steam',
+    channelName: 'Steam',
+    channelType: 'PC',
     buttonName: '预约',
     jumpLink: '',
     operator: MOCK_OPERATOR,
@@ -246,9 +272,13 @@ export default function DownloadButtonPage() {
   }, [isDirty])
 
   const updateChannel = (id: string, patch: Partial<DownloadChannelConfig>) => {
+    const withType =
+      patch.channelName !== undefined
+        ? { ...patch, channelType: getChannelType(patch.channelName) }
+        : patch
     setChannels((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, ...patch, operator: MOCK_OPERATOR, updatedAt: now() } : c
+        c.id === id ? { ...c, ...withType, operator: MOCK_OPERATOR, updatedAt: now() } : c
       )
     )
   }
@@ -269,6 +299,7 @@ export default function DownloadButtonPage() {
         id,
         key,
         channelName: values.channelName,
+        channelType: getChannelType(values.channelName),
         buttonName: values.buttonName,
         jumpLink: values.jumpLink,
         scheduledTime: values.buttonName === '预约' ? values.scheduledTime : undefined,
@@ -289,7 +320,10 @@ export default function DownloadButtonPage() {
     messageApi.success('已删除渠道')
   }
 
-  const handleEditChannelSave = (id: string, patch: { channelName: string; buttonName: string; jumpLink: string }) => {
+  const handleEditChannelSave = (
+    id: string,
+    patch: { channelName: string; channelType?: 'Android' | 'ios' | 'PC' | '鸿蒙'; buttonName: string; jumpLink: string }
+  ) => {
     updateChannel(id, patch)
     setEditingChannelId(null)
     messageApi.success('已保存')
@@ -329,7 +363,7 @@ export default function DownloadButtonPage() {
         <div style={cardHeaderStyle()}>
           <div>
             <h1 style={cardTitleStyle()}>渠道与链接配置</h1>
-            <p style={cardDescStyle()}>展示渠道名、按钮状态与配置链接</p>
+            <p style={cardDescStyle()}>展示渠道名、类型、状态与配置链接</p>
           </div>
           <Space size={8}>
             <Button
@@ -353,13 +387,19 @@ export default function DownloadButtonPage() {
             columns={[
               {
                 title: '渠道',
-                width: 160,
+                width: 140,
                 dataIndex: 'channelName',
                 render: (name: string) => name,
               },
               {
-                title: '按钮状态',
-                width: 160,
+                title: '类型',
+                width: 100,
+                render: (_: unknown, record: DownloadChannelConfig) =>
+                  record.channelType ?? getChannelType(record.channelName),
+              },
+              {
+                title: '状态',
+                width: 100,
                 dataIndex: 'buttonName',
                 render: (val: string) => val,
               },
@@ -367,7 +407,14 @@ export default function DownloadButtonPage() {
                 title: '配置链接',
                 dataIndex: 'jumpLink',
                 ellipsis: true,
-                render: (link: string) => link || '—',
+                render: (link: string) =>
+                  link ? (
+                    <a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
+                      {link}
+                    </a>
+                  ) : (
+                    '—'
+                  ),
               },
               {
                 title: '操作',
@@ -757,7 +804,7 @@ function EditChannelModal({
   record: DownloadChannelConfig | null
   channels: DownloadChannelConfig[]
   open: boolean
-  onSave: (id: string, patch: { channelName: string; buttonName: string; jumpLink: string }) => void
+  onSave: (id: string, patch: { channelName: string; channelType?: 'Android' | 'ios' | 'PC' | '鸿蒙' | '鸿蒙'; buttonName: string; jumpLink: string }) => void
   onCancel: () => void
 }) {
   const [channelName, setChannelName] = useState(record?.channelName ?? '')
@@ -788,7 +835,12 @@ function EditChannelModal({
       message.error('类型为「获取」时请填写跳转链接')
       return
     }
-    onSave(record.id, { channelName: name, buttonName, jumpLink: jumpLink.trim() })
+    onSave(record.id, {
+      channelName: name,
+      channelType: getChannelType(name),
+      buttonName,
+      jumpLink: jumpLink.trim(),
+    })
   }
 
   if (!record) return null
@@ -814,7 +866,13 @@ function EditChannelModal({
           />
         </div>
         <div>
-          <span style={{ fontSize: 13, color: '#374151' }}>按钮状态</span>
+          <span style={{ fontSize: 13, color: '#374151' }}>类型</span>
+          <div style={{ fontSize: 13, color: '#374151', marginTop: 6 }}>
+            {channelName ? (CHANNEL_TYPE_MAP[channelName] ?? 'Android') : '—'}
+          </div>
+        </div>
+        <div>
+          <span style={{ fontSize: 13, color: '#374151' }}>状态</span>
           <Select
             value={buttonName}
             onChange={(v) => setButtonName(v)}
@@ -1054,7 +1112,13 @@ function AddChannelForm({
         )}
       </div>
       <div>
-        <span style={{ fontSize: 13, color: '#374151' }}>按钮状态</span>
+        <span style={{ fontSize: 13, color: '#374151' }}>类型</span>
+        <div style={{ fontSize: 13, color: '#374151', marginTop: 6 }}>
+          {channelName ? (CHANNEL_TYPE_MAP[channelName] ?? 'Android') : '—'}
+        </div>
+      </div>
+      <div>
+        <span style={{ fontSize: 13, color: '#374151' }}>状态</span>
         <Select
           value={buttonName}
           onChange={(v) => setButtonName(v)}
