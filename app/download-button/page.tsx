@@ -337,7 +337,7 @@ export default function DownloadButtonPage() {
         title="添加渠道"
         open={addModalOpen}
         onCancel={() => setAddModalOpen(false)}
-        destroyOnClose
+        destroyOnHidden
         footer={null}
         width={400}
       >

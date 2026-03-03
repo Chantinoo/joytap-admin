@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, message, Tooltip, Modal, Input, Popconfirm, Space } from 'antd'
-import { Eye, Calendar, User, Pencil, Plus, Save, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X, GripVertical } from 'lucide-react'
+import { Eye, Calendar, User, Pencil, Plus, Save, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X } from 'lucide-react'
 import { Article } from '../../types'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
@@ -62,36 +62,18 @@ export default function CollectionPageDetail() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [isDirty])
 
-  // ── 拖拽排序状态 ──
-  const dragIndexRef = useRef<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-
-  const handleDragStart = (index: number) => {
-    dragIndexRef.current = index
-  }
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    if (dragIndexRef.current !== null && dragIndexRef.current !== index) {
-      setDragOverIndex(index)
+  // ── 排序：热门（浏览量降序）/ 最新（发布日期降序） ──
+  type SortMode = 'hot' | 'latest'
+  const [sortMode, setSortMode] = useState<SortMode>('latest')
+  const displayedArticles = useMemo(() => {
+    const list = [...articles]
+    if (sortMode === 'hot') {
+      list.sort((a, b) => (b.viewsCount ?? 0) - (a.viewsCount ?? 0))
+    } else {
+      list.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
     }
-  }
-
-  const handleDrop = (index: number) => {
-    const from = dragIndexRef.current
-    if (from === null || from === index) { setDragOverIndex(null); return }
-    const next = [...articles]
-    const [moved] = next.splice(from, 1)
-    next.splice(index, 0, moved)
-    setArticles(next)
-    dragIndexRef.current = null
-    setDragOverIndex(null)
-  }
-
-  const handleDragEnd = () => {
-    dragIndexRef.current = null
-    setDragOverIndex(null)
-  }
+    return list
+  }, [articles, sortMode])
 
   // ── 新增 / 编辑弹窗状态 ──
   const [editModal, setEditModal] = useState<Article | 'new' | null>(null)
@@ -265,38 +247,60 @@ export default function CollectionPageDetail() {
 
       {/* 帖子列表 */}
       <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ width: 3, height: 14, background: '#1677FF', borderRadius: 2, display: 'inline-block' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>帖子列表</span>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 3, height: 14, background: '#1677FF', borderRadius: 2, display: 'inline-block' }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>帖子列表</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#F3F4F6', borderRadius: 6, padding: 2 }}>
+            <button
+              type="button"
+              onClick={() => setSortMode('hot')}
+              style={{
+                border: 'none',
+                borderRadius: 4,
+                padding: '4px 12px',
+                fontSize: 12,
+                fontWeight: 500,
+                color: sortMode === 'hot' ? '#111827' : '#6B7280',
+                background: sortMode === 'hot' ? '#fff' : 'transparent',
+                boxShadow: sortMode === 'hot' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              热门
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortMode('latest')}
+              style={{
+                border: 'none',
+                borderRadius: 4,
+                padding: '4px 12px',
+                fontSize: 12,
+                fontWeight: 500,
+                color: sortMode === 'latest' ? '#111827' : '#6B7280',
+                background: sortMode === 'latest' ? '#fff' : 'transparent',
+                boxShadow: sortMode === 'latest' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              最新
+            </button>
+          </div>
         </div>
 
-        {articles.map((article, index) => (
+        {displayedArticles.map((article, index) => (
           <div
             key={article.id}
-            draggable
-            onDragStart={() => handleDragStart(index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDrop={() => handleDrop(index)}
-            onDragEnd={handleDragEnd}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 14,
               padding: '14px 20px',
-              borderBottom: index < articles.length - 1 ? '1px solid #F3F4F6' : 'none',
-              transition: 'background 0.15s, box-shadow 0.15s',
-              background: dragOverIndex === index ? '#EFF6FF' : 'transparent',
-              boxShadow: dragOverIndex === index ? 'inset 0 2px 0 #1677FF' : 'none',
-              cursor: 'grab',
+              borderBottom: index < displayedArticles.length - 1 ? '1px solid #F3F4F6' : 'none',
             }}
-            onMouseEnter={(e) => { if (dragIndexRef.current === null) (e.currentTarget as HTMLDivElement).style.background = '#FAFAFA' }}
-            onMouseLeave={(e) => { if (dragOverIndex !== index) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
           >
-            {/* 拖拽把手 */}
-            <div style={{ color: '#D1D5DB', flexShrink: 0, cursor: 'grab', display: 'flex', alignItems: 'center' }}>
-              <GripVertical size={16} />
-            </div>
-
             {/* 封面图 */}
             <Tooltip title="点击编辑链接与封面">
               <div

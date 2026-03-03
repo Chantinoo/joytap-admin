@@ -48,7 +48,7 @@ export const guidesModules: ContentModule[] = [
   {
     id: 'mod-2',
     type: 'collection-grid',
-    title: '全部攻略',
+    title: '',
     sortOrder: 1,
     collections: [
       { id: 'cg-1', name: '武器攻略',  link: '/collection/6',  coverUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&h=120&fit=crop', articlesCount: 56, viewsCount: 47000, addedAt: '2025-01-10', operator: 'Admin' },

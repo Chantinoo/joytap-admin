@@ -887,7 +887,7 @@ export default function TabEditPage() {
                           onClick={(e) => { e.stopPropagation(); setEditingTitleId(mod.id) }}
                         >
                           <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: mod.title ? '#111827' : '#9CA3AF' }}>
-                            {mod.title || '未命名'}
+                            {mod.title || '名称（选填）'}
                           </span>
                           <Pencil size={11} color="#C0C8D0" style={{ flexShrink: 0 }} />
                         </div>
