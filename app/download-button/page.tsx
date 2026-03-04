@@ -13,14 +13,14 @@ import type { DownloadChannelConfig, ReservedUserInfo } from '../types'
 const CHANNEL_NAME_OPTIONS = ['Google Play', 'App Store', '官方 PC 客户端', 'Steam', '华为应用市场']
 
 /** 渠道名称 -> 类型 */
-const CHANNEL_TYPE_MAP: Record<string, 'Android' | 'ios' | 'PC' | '鸿蒙'> = {
+const CHANNEL_TYPE_MAP: Record<string, 'Android' | 'iOS' | 'PC' | '鸿蒙'> = {
   'Google Play': 'Android',
-  'App Store': 'ios',
+  'App Store': 'iOS',
   '官方 PC 客户端': 'PC',
   Steam: 'PC',
   '华为应用市场': '鸿蒙',
 }
-function getChannelType(channelName: string): 'Android' | 'ios' | 'PC' | '鸿蒙' {
+function getChannelType(channelName: string): 'Android' | 'iOS' | 'PC' | '鸿蒙' {
   return CHANNEL_TYPE_MAP[channelName] ?? 'Android'
 }
 
@@ -78,7 +78,7 @@ const DEFAULT_CHANNELS: DownloadChannelConfig[] = [
     id: 'ch-app-store',
     key: 'app-store',
     channelName: 'App Store',
-    channelType: 'ios',
+    channelType: 'iOS',
     buttonName: '预约',
     jumpLink: '',
     operator: MOCK_OPERATOR,
@@ -322,7 +322,7 @@ export default function DownloadButtonPage() {
 
   const handleEditChannelSave = (
     id: string,
-    patch: { channelName: string; channelType?: 'Android' | 'ios' | 'PC' | '鸿蒙'; buttonName: string; jumpLink: string }
+    patch: { channelName: string; channelType?: 'Android' | 'iOS' | 'PC' | '鸿蒙'; buttonName: string; jumpLink: string }
   ) => {
     updateChannel(id, patch)
     setEditingChannelId(null)
@@ -804,7 +804,7 @@ function EditChannelModal({
   record: DownloadChannelConfig | null
   channels: DownloadChannelConfig[]
   open: boolean
-  onSave: (id: string, patch: { channelName: string; channelType?: 'Android' | 'ios' | 'PC' | '鸿蒙' | '鸿蒙'; buttonName: string; jumpLink: string }) => void
+  onSave: (id: string, patch: { channelName: string; channelType?: 'Android' | 'iOS' | 'PC' | '鸿蒙'; buttonName: string; jumpLink: string }) => void
   onCancel: () => void
 }) {
   const [channelName, setChannelName] = useState(record?.channelName ?? '')

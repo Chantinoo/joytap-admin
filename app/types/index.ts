@@ -142,8 +142,8 @@ export interface DownloadChannelConfig {
   key: string
   /** 渠道显示名称（如 Google Play、App Store、官方 PC 客户端、Steam） */
   channelName: string
-  /** 类型：Android / ios / PC / 鸿蒙，与渠道对应 */
-  channelType?: 'Android' | 'ios' | 'PC' | '鸿蒙'
+  /** 类型：Android / iOS / PC / 鸿蒙，与渠道对应 */
+  channelType?: 'Android' | 'iOS' | 'PC' | '鸿蒙'
   /** 状态：预约 / 获取。预约时可填跳转链接与定时，定时到达后视为「获取」并开放链接 */
   buttonName: string
   /** 跳转链接。类型为「获取」时必填；类型为「预约」时选填，可与定时配合使用 */
