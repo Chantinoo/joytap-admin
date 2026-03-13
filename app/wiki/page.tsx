@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect, Suspense } from 'react'
 import {
   Table, Button, Tag, Space, Input, Select, Modal, Form, Switch,
   Tooltip, Popconfirm, message, Checkbox, Tabs,
 } from 'antd'
 import { Plus, Edit2, Trash2, ExternalLink, GripVertical, Search, Languages } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import GameFilter from '../components/GameFilter'
 import FieldI18nModal, { type I18nLabels, LANGUAGES } from './components/FieldI18nModal'
@@ -98,12 +98,25 @@ const DEFAULT_FIELDS: WikiField[] = []
 // ─────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────
-export default function WikiManagePage() {
+function WikiManageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [messageApi, contextHolder] = message.useMessage()
 
   // ── Tab ──────────────────────────────────────
   const [mainTab, setMainTab] = useState<'nav' | 'list'>('nav')
+
+  // Sync tab & nav from URL params on navigation
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    const n = searchParams.get('nav')
+    if (t === 'list') {
+      setMainTab('list')
+      if (n && initialNavs.some(nav => nav.key === n)) {
+        setSelectedNavKey(n)
+      }
+    }
+  }, [searchParams])
 
   // ── 导航管理 state ────────────────────────────
   const [navs, setNavs] = useState<WikiNav[]>(initialNavs)
@@ -328,7 +341,15 @@ export default function WikiManagePage() {
       render: (_: unknown, record: WikiNav) => (
         <Space size={4}>
           <Tooltip title="进入管理">
-            <Button size="small" type="link" icon={<ExternalLink size={13} />} onClick={() => router.push(`/wiki/${record.key}`)}>
+            <Button size="small" type="link" icon={<ExternalLink size={13} />}
+              onClick={() => {
+                if (record.key === 'npcs' || record.key === 'maps') {
+                  router.push(`/wiki/${record.key}`)
+                } else {
+                  setMainTab('list')
+                  setSelectedNavKey(record.key)
+                }
+              }}>
               管理
             </Button>
           </Tooltip>
@@ -357,10 +378,10 @@ export default function WikiManagePage() {
             <Button size="small" type="text" icon={<Languages size={12} />} style={{ color: '#1677FF', padding: '0 4px', height: 20 }}
               onClick={() => openI18nModal(record)} />
           </Tooltip>
-          <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {LANGUAGES.filter(l => record.i18n?.[l.code]).map(l => (
               <Tooltip key={l.code} title={`${l.label}: ${record.i18n?.[l.code]}`}>
-                <span style={{ fontSize: 12, cursor: 'default' }}>{l.flag}</span>
+                <span style={{ fontSize: 11, color: '#6B7280', background: '#F3F4F6', padding: '1px 5px', borderRadius: 3, cursor: 'default', lineHeight: '18px' }}>{l.code}</span>
               </Tooltip>
             ))}
           </div>
@@ -531,10 +552,17 @@ export default function WikiManagePage() {
                       key={s.id}
                       onClick={() => {
                         setSelectedStyle(s.id)
-                        const valid = listFieldKeys.filter(k => {
+                        let valid = listFieldKeys.filter(k => {
                           const f = currentFields.find(ff => ff.key === k)
                           return f && s.allowedTypes.includes(f.type)
                         }).slice(0, s.maxFields)
+                        // Auto-select first image field for requireImage styles
+                        if (s.requireImage) {
+                          const firstImageField = sortedFields.find(f => f.visible && f.type === 'image')
+                          if (firstImageField && !valid.includes(firstImageField.key)) {
+                            valid = [firstImageField.key, ...valid].slice(0, s.maxFields)
+                          }
+                        }
                         setListFieldKeys(valid)
                       }}
                       style={{
@@ -590,8 +618,13 @@ export default function WikiManagePage() {
                           return ff && ff.type !== 'image'
                         })
                         // For requireImage styles: only 1 image allowed; text/number capped at maxTextFields
+                        // For requireImage: first image field is locked (checked + disabled)
+                        const firstImageField = sortedFields.find(ff => ff.visible && ff.type === 'image')
+                        const isLockedImage = currentStyleConfig.requireImage && isImage && firstImageField?.key === f.key
                         let disabled = !allowed
-                        if (!disabled && !checked) {
+                        if (isLockedImage) {
+                          disabled = true // can't uncheck
+                        } else if (!disabled && !checked) {
                           if (currentStyleConfig.requireImage) {
                             if (isImage && checkedImageKeys.length >= 1) disabled = true
                             if (!isImage && checkedTextKeys.length >= (currentStyleConfig.maxTextFields ?? (currentStyleConfig.maxFields - 1))) disabled = true
@@ -695,14 +728,10 @@ export default function WikiManagePage() {
                         <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
                           ① 主区域字段
                         </div>
-                        <Input
-                          size="small"
-                          value={detail1Config.mainTitle}
-                          onChange={e => setDetail1Config(prev => ({ ...prev, mainTitle: e.target.value }))}
-                          placeholder="区域标题"
-                          style={{ marginBottom: 8 }}
-                          prefix={<span style={{ color: '#9CA3AF', fontSize: 11 }}>标题</span>}
-                        />
+                        <div style={{ marginBottom: 8, padding: '4px 8px', background: '#F3F4F6', borderRadius: 4, fontSize: 12, color: '#6B7280' }}>
+                          <span style={{ color: '#9CA3AF', fontSize: 11, marginRight: 6 }}>标题</span>
+                          <span style={{ color: '#374151', fontWeight: 500 }}>名称</span>
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                           {sortedFields.filter(f => f.visible).map(f => {
                             const allowed = ['image', 'text', 'number'].includes(f.type)
@@ -852,8 +881,12 @@ export default function WikiManagePage() {
                     <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {/* 主区域字段 */}
                       <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
                           主区域字段
+                        </div>
+                        <div style={{ marginBottom: 8, padding: '4px 8px', background: '#F3F4F6', borderRadius: 4, fontSize: 12, color: '#6B7280' }}>
+                          <span style={{ color: '#9CA3AF', fontSize: 11, marginRight: 6 }}>标题</span>
+                          <span style={{ color: '#374151', fontWeight: 500 }}>名称</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                           {sortedFields.filter(f => f.visible).map(f => {
@@ -1039,5 +1072,13 @@ export default function WikiManagePage() {
         />
       )}
     </div>
+  )
+}
+
+export default function WikiManagePage() {
+  return (
+    <Suspense fallback={null}>
+      <WikiManageInner />
+    </Suspense>
   )
 }

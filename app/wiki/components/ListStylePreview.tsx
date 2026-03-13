@@ -101,6 +101,16 @@ const MOCK_DATA: MockItem[] = [
     description: '小型匕首，攻击速度快，适合盗贼系职业。',       slots: 3, job: '全职业',
     set_parts: { label: '套装组成', items: [] },
   },
+  {
+    icon: '🏹', id: 1701, name: '弓',       type: '武器', weight: 60,  price: 200,
+    description: '基础的远程武器，适合弓箭手系职业。',           slots: 1, job: '弓箭手系',
+    set_parts: { label: '套装组成', items: [{ icon: '🃏', name: '猎人卡片' }] },
+  },
+  {
+    icon: '📖', id: 1601, name: '魔法书',   type: '武器', weight: 40,  price: 350,
+    description: '蕴含魔力的书籍，法师系职业的常用武器。',       slots: 2, job: '法师系',
+    set_parts: { label: '套装组成', items: [{ icon: '🃏', name: '贤者卡片' }, { icon: '🃏', name: '巫师卡片' }] },
+  },
 ]
 
 interface Props {
@@ -113,7 +123,7 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
   const displayFields = fields.filter(f => selectedFieldKeys.includes(f.key))
 
   // ── 1. 横向卡片列表（card-list）────────────────────────────
-  // 图片必选（左侧），右侧最多 4 个文本/数字字段
+  // 一行四个卡片，图片在左，右侧每个字段独占一行
   if (style === 'card-list') {
     const imageField = displayFields.find(f => f.type === 'image')
     const textFields = displayFields.filter(f => f.type !== 'image').slice(0, 4)
@@ -121,31 +131,31 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
     const [titleField, ...attrFields] = textFields
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {MOCK_DATA.slice(0, 3).map((row, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        {MOCK_DATA.slice(0, 4).map((row, i) => (
           <div key={i} style={{
             border: '1px solid #E5E7EB',
             borderRadius: 10,
             padding: '12px 14px',
             display: 'flex',
-            alignItems: 'center',
-            gap: 12,
+            alignItems: 'flex-start',
+            gap: 10,
             background: '#fff',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}>
             {/* 左侧图片 */}
             {imageField ? (
               <div style={{
-                width: 48, height: 48, flexShrink: 0,
+                width: 44, height: 44, flexShrink: 0,
                 background: '#F3F4F6', borderRadius: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 26,
+                fontSize: 24,
               }}>
                 {row[imageField.key] as string}
               </div>
             ) : (
               <div style={{
-                width: 48, height: 48, flexShrink: 0,
+                width: 44, height: 44, flexShrink: 0,
                 background: '#F3F4F6', borderRadius: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 18, color: '#D1D5DB',
@@ -153,25 +163,24 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
                 📷
               </div>
             )}
-            {/* 右侧内容 */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+            {/* 右侧内容：每个字段独占一行 */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
               {titleField && (
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#1F2937', marginBottom: attrFields.length > 0 ? 4 : 0 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 600, color: '#1F2937',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
                   {String(row[titleField.key] ?? '—')}
                 </div>
               )}
-              {attrFields.length > 0 && (
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {attrFields.map(f => (
-                    <span key={f.key} style={{ fontSize: 12, color: '#6B7280' }}>
-                      {f.label}
-                      <span style={{ color: '#374151', fontWeight: 500, marginLeft: 3 }}>
-                        {String(row[f.key] ?? '—')}
-                      </span>
-                    </span>
-                  ))}
+              {attrFields.map(f => (
+                <div key={f.key} style={{
+                  fontSize: 12, color: '#6B7280',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {String(row[f.key] ?? '—')}
                 </div>
-              )}
+              ))}
             </div>
           </div>
         ))}
@@ -186,8 +195,8 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
     const nameField = displayFields.find(f => f.key === 'name')
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-        {MOCK_DATA.slice(0, 3).map((row, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+        {MOCK_DATA.slice(0, 6).map((row, i) => (
           <div key={i} style={{
             border: '1px solid #E5E7EB',
             borderRadius: 10,
@@ -305,8 +314,8 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
     const [titleField, subField] = textFields
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-        {MOCK_DATA.slice(0, 3).map((row, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+        {MOCK_DATA.slice(0, 5).map((row, i) => (
           <div key={i} style={{
             border: '1px solid #E5E7EB',
             borderRadius: 10,

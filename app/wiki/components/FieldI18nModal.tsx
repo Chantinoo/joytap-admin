@@ -101,7 +101,7 @@ export default function FieldI18nModal({ open, fieldKey, fieldLabel, i18n, onSav
           <span style={{ fontSize: 13, color: '#0369A1', flex: 1 }}>选择源语言，一键 AI 翻译其他语种</span>
           <Select value={sourceLang} onChange={setSourceLang} size="small" style={{ width: 110 }}>
             {LANGUAGES.map(l => (
-              <Option key={l.code} value={l.code}>{l.flag} {l.label}</Option>
+              <Option key={l.code} value={l.code}><span style={{ fontFamily: 'monospace', fontSize: 12, marginRight: 4 }}>{l.code}</span> {l.label}</Option>
             ))}
           </Select>
           <Button
@@ -123,7 +123,7 @@ export default function FieldI18nModal({ open, fieldKey, fieldLabel, i18n, onSav
               key={lang.code}
               label={
                 <span style={{ fontSize: 13 }}>
-                  {lang.flag} {lang.label}
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#6B7280', background: '#F3F4F6', padding: '1px 5px', borderRadius: 3, marginRight: 6 }}>{lang.code}</span>{lang.label}
                   {lang.code === sourceLang && <Tag color="blue" style={{ marginLeft: 6, fontSize: 11 }}>源语言</Tag>}
                 </span>
               }

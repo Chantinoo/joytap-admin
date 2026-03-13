@@ -199,10 +199,10 @@ export default function WikiItemsPage() {
             <Button size="small" type="text" icon={<Languages size={12} />} style={{ color: '#1677FF', padding: '0 4px', height: 20 }}
               onClick={() => openI18nModal(record)} />
           </Tooltip>
-          <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {LANGUAGES.filter(l => record.i18n?.[l.code]).map(l => (
               <Tooltip key={l.code} title={`${l.label}: ${record.i18n?.[l.code]}`}>
-                <span style={{ fontSize: 12, cursor: 'default' }}>{l.flag}</span>
+                <span style={{ fontSize: 11, color: '#6B7280', background: '#F3F4F6', padding: '1px 5px', borderRadius: 3, cursor: 'default', lineHeight: '18px' }}>{l.code}</span>
               </Tooltip>
             ))}
           </div>
@@ -307,10 +307,16 @@ export default function WikiItemsPage() {
                         key={s.id}
                         onClick={() => {
                           setSelectedStyle(s.id)
-                          const valid = listFieldKeys.filter(k => {
+                          let valid = listFieldKeys.filter(k => {
                             const f = fields.find(ff => ff.key === k)
                             return f && s.allowedTypes.includes(f.type)
                           }).slice(0, s.maxFields)
+                          if (s.requireImage) {
+                            const firstImageField = sortedFields.find(f => f.visible && f.type === 'image')
+                            if (firstImageField && !valid.includes(firstImageField.key)) {
+                              valid = [firstImageField.key, ...valid].slice(0, s.maxFields)
+                            }
+                          }
                           setListFieldKeys(valid)
                         }}
                         style={{
@@ -360,8 +366,12 @@ export default function WikiItemsPage() {
                           const ff = sortedFields.find(x => x.key === k)
                           return ff && ff.type !== 'image'
                         })
+                        const firstImageField = sortedFields.find(ff => ff.visible && ff.type === 'image')
+                        const isLockedImage = currentStyleConfig.requireImage && isImage && firstImageField?.key === f.key
                         let disabled = !allowed
-                        if (!disabled && !checked) {
+                        if (isLockedImage) {
+                          disabled = true
+                        } else if (!disabled && !checked) {
                           if (currentStyleConfig.requireImage) {
                             if (isImage && checkedImageKeys.length >= 1) disabled = true
                             if (!isImage && checkedTextKeys.length >= (currentStyleConfig.maxTextFields ?? (currentStyleConfig.maxFields - 1))) disabled = true
@@ -372,7 +382,7 @@ export default function WikiItemsPage() {
                         return (
                           <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Checkbox
-                              checked={checked}
+                              checked={checked || isLockedImage}
                               disabled={disabled}
                               onChange={e => {
                                 if (e.target.checked) {

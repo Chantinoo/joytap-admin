@@ -9,7 +9,7 @@ import ListStylePreview, { LIST_STYLES, type ListStyle } from '../components/Lis
 
 const { Option } = Select
 
-type FieldType = 'text' | 'number' | 'image' | 'tag' | 'boolean' | 'select' | 'range'
+type FieldType = 'text' | 'number' | 'image' | 'tag' | 'rich-table'
 
 interface WikiField {
   key: string
@@ -24,57 +24,47 @@ interface WikiField {
   order: number
 }
 
-interface Monster {
-  id: number; name: string; icon: string; level: number; hp: number
-  atk: number; def: number; exp: number; jexp: number
-  element: string; race: string; size: string; location: string; visible: boolean
+interface GameMap {
+  id: number; name: string; icon: string; region: string
+  level_range: string; type: string; monsters: string; npcs: string
+  teleport: string; visible: boolean
   [key: string]: unknown
 }
 
 const initialFields: WikiField[] = [
-  { key: 'icon',     label: '图标',     i18n: { zh: '图标',     en: 'Icon',        ko: '아이콘',    ja: 'アイコン',   es: 'Ícono',       pt: 'Ícone'        }, type: 'image',  visible: true,  listDisplay: true,  sortable: false, filterable: false, required: true,  order: 1 },
-  { key: 'id',       label: 'ID',       i18n: { zh: 'ID',       en: 'ID',          ko: 'ID',        ja: 'ID',         es: 'ID',          pt: 'ID'           }, type: 'number', visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: true,  order: 2 },
-  { key: 'name',     label: '名称',     i18n: { zh: '名称',     en: 'Name',        ko: '이름',      ja: '名前',       es: 'Nombre',      pt: 'Nome'         }, type: 'text',   visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 3 },
-  { key: 'level',    label: '等级',     i18n: { zh: '等级',     en: 'Level',       ko: '레벨',      ja: 'レベル',     es: 'Nivel',       pt: 'Nível'        }, type: 'number', visible: true,  listDisplay: true,  sortable: true,  filterable: true,  required: true,  order: 4 },
-  { key: 'hp',       label: 'HP',       i18n: { zh: 'HP',       en: 'HP',          ko: 'HP',        ja: 'HP',         es: 'HP',          pt: 'HP'           }, type: 'number', visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: true,  order: 5 },
-  { key: 'atk',      label: '攻击',     i18n: { zh: '攻击',     en: 'ATK',         ko: '공격',      ja: '攻撃',       es: 'ATQ',         pt: 'ATQ'          }, type: 'range',  visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: false, order: 6 },
-  { key: 'def',      label: '防御',     i18n: { zh: '防御',     en: 'DEF',         ko: '방어',      ja: '防御',       es: 'DEF',         pt: 'DEF'          }, type: 'number', visible: true,  listDisplay: false, sortable: true,  filterable: false, required: false, order: 7 },
-  { key: 'exp',      label: '基础经验', i18n: { zh: '基础经验', en: 'Base EXP',    ko: '기본 경험치', ja: '基本経験値', es: 'EXP Base',    pt: 'EXP Base'     }, type: 'number', visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: false, order: 8 },
-  { key: 'jexp',     label: '职业经验', i18n: { zh: '职业经验', en: 'Job EXP',     ko: '직업 경험치', ja: 'ジョブ経験値', es: 'EXP Clase',  pt: 'EXP Classe'   }, type: 'number', visible: true,  listDisplay: false, sortable: true,  filterable: false, required: false, order: 9 },
-  { key: 'element',  label: '属性',     i18n: { zh: '属性',     en: 'Element',     ko: '속성',      ja: '属性',       es: 'Elemento',    pt: 'Elemento'     }, type: 'select', visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 10 },
-  { key: 'race',     label: '种族',     i18n: { zh: '种族',     en: 'Race',        ko: '종족',      ja: '種族',       es: 'Raza',        pt: 'Raça'         }, type: 'select', visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 11 },
-  { key: 'size',     label: '体型',     i18n: { zh: '体型',     en: 'Size',        ko: '크기',      ja: 'サイズ',     es: 'Tamaño',      pt: 'Tamanho'      }, type: 'select', visible: true,  listDisplay: false, sortable: false, filterable: true,  required: false, order: 12 },
-  { key: 'location', label: '出没地点', i18n: { zh: '出没地点', en: 'Location',    ko: '출몰 지역', ja: '出没場所',   es: 'Ubicación',   pt: 'Localização'  }, type: 'tag',    visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: false, order: 13 },
+  { key: 'icon',        label: '图标',     i18n: { zh: '图标',     en: 'Icon'        }, type: 'image',      visible: true,  listDisplay: true,  sortable: false, filterable: false, required: true,  order: 1 },
+  { key: 'id',          label: 'ID',       i18n: { zh: 'ID',       en: 'ID'          }, type: 'number',     visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: true,  order: 2 },
+  { key: 'name',        label: '名称',     i18n: { zh: '名称',     en: 'Name'        }, type: 'text',       visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 3 },
+  { key: 'region',      label: '所属区域', i18n: { zh: '所属区域', en: 'Region'      }, type: 'tag',        visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 4 },
+  { key: 'level_range', label: '等级范围', i18n: { zh: '等级范围', en: 'Level Range' }, type: 'text',       visible: true,  listDisplay: true,  sortable: false, filterable: false, required: false, order: 5 },
+  { key: 'type',        label: '地图类型', i18n: { zh: '地图类型', en: 'Map Type'    }, type: 'tag',        visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: false, order: 6 },
+  { key: 'monsters',    label: '出没怪物', i18n: { zh: '出没怪物', en: 'Monsters'    }, type: 'text',       visible: true,  listDisplay: false, sortable: false, filterable: false, required: false, order: 7 },
+  { key: 'npcs',        label: 'NPC',      i18n: { zh: 'NPC',      en: 'NPCs'        }, type: 'text',       visible: true,  listDisplay: false, sortable: false, filterable: false, required: false, order: 8 },
+  { key: 'teleport',    label: '传送点',   i18n: { zh: '传送点',   en: 'Teleport'    }, type: 'rich-table', visible: true,  listDisplay: false, sortable: false, filterable: false, required: false, order: 9 },
+  { key: 'description', label: '描述',     i18n: { zh: '描述',     en: 'Description' }, type: 'text',       visible: false, listDisplay: false, sortable: false, filterable: false, required: false, order: 10 },
 ]
 
-const mockMonsters: Monster[] = [
-  { id: 1002, name: '波利',     icon: '🐾', level: 1,  hp: 50,    atk: 7,   def: 0,  exp: 2,    jexp: 1,    element: '无属性', race: '植物', size: '小型', location: '新手村',       visible: true },
-  { id: 1031, name: '蜂王',     icon: '🐝', level: 5,  hp: 195,   atk: 22,  def: 0,  exp: 72,   jexp: 46,   element: '风属性', race: '昆虫', size: '小型', location: '普隆德拉',     visible: true },
-  { id: 1113, name: '骷髅',     icon: '💀', level: 15, hp: 490,   atk: 55,  def: 5,  exp: 198,  jexp: 126,  element: '暗属性', race: '不死', size: '中型', location: '普隆德拉墓地', visible: true },
-  { id: 1115, name: '骷髅战士', icon: '💀', level: 21, hp: 1200,  atk: 95,  def: 15, exp: 450,  jexp: 288,  element: '暗属性', race: '不死', size: '中型', location: '普隆德拉墓地', visible: true },
-  { id: 1038, name: '蜥蜴战士', icon: '🦎', level: 30, hp: 2200,  atk: 130, def: 20, exp: 900,  jexp: 576,  element: '火属性', race: '蜥蜴', size: '中型', location: '沙漠',         visible: true },
-  { id: 1150, name: '奥克',     icon: '👹', level: 40, hp: 3800,  atk: 200, def: 30, exp: 1800, jexp: 1152, element: '无属性', race: '兽人', size: '大型', location: '奥克村',       visible: true },
-  { id: 1096, name: '蜘蛛',     icon: '🕷️', level: 18, hp: 720,   atk: 75,  def: 5,  exp: 320,  jexp: 204,  element: '毒属性', race: '昆虫', size: '小型', location: '蜘蛛巢穴',     visible: true },
-  { id: 1190, name: '冰霜精灵', icon: '❄️', level: 55, hp: 7200,  atk: 320, def: 45, exp: 4200, jexp: 2688, element: '水属性', race: '精灵', size: '中型', location: '冰雪地带',     visible: false },
-  { id: 1272, name: '暗影骑士', icon: '🗡️', level: 70, hp: 15000, atk: 580, def: 80, exp: 9800, jexp: 6272, element: '暗属性', race: '恶魔', size: '大型', location: '暗影城堡',     visible: true },
-  { id: 1046, name: '史莱姆',   icon: '🟢', level: 3,  hp: 120,   atk: 12,  def: 0,  exp: 18,   jexp: 11,   element: '水属性', race: '变形', size: '小型', location: '普隆德拉周边', visible: true },
+const mockMaps: GameMap[] = [
+  { id: 1,  name: '普隆德拉',     icon: '🏰', region: '卢恩-米德加兹', level_range: '—',      type: '城镇', monsters: '—',                 npcs: '卡普拉、铁匠、商人', teleport: '伊兹鲁德、吉芬', visible: true },
+  { id: 2,  name: '普隆德拉周边', icon: '🌿', region: '卢恩-米德加兹', level_range: '1~15',   type: '野外', monsters: '波利、史莱姆、蜂王', npcs: '—',                 teleport: '普隆德拉',       visible: true },
+  { id: 3,  name: '普隆德拉墓地', icon: '⚰️', region: '卢恩-米德加兹', level_range: '15~30',  type: '地下城', monsters: '骷髅、骷髅战士',   npcs: '—',                 teleport: '普隆德拉',       visible: true },
+  { id: 4,  name: '伊兹鲁德',     icon: '🏝️', region: '卢恩-米德加兹', level_range: '—',      type: '城镇', monsters: '—',                 npcs: '卡普拉、商人',       teleport: '普隆德拉、亚尔伯塔', visible: true },
+  { id: 5,  name: '吉芬',         icon: '🔮', region: '卢恩-米德加兹', level_range: '—',      type: '城镇', monsters: '—',                 npcs: '卡普拉、魔法商人',   teleport: '普隆德拉',       visible: true },
+  { id: 6,  name: '吉芬地下城',   icon: '🕳️', region: '卢恩-米德加兹', level_range: '30~50',  type: '地下城', monsters: '蜥蜴战士、奥克',   npcs: '—',                 teleport: '吉芬',           visible: true },
+  { id: 7,  name: '沙漠',         icon: '🏜️', region: '卢恩-米德加兹', level_range: '25~40',  type: '野外', monsters: '蜥蜴战士',           npcs: '—',                 teleport: '摩洛克',         visible: true },
+  { id: 8,  name: '冰雪地带',     icon: '❄️', region: '卢恩-米德加兹', level_range: '50~70',  type: '野外', monsters: '冰霜精灵',           npcs: '—',                 teleport: '拉赫',           visible: false },
 ]
 
 const fieldTypeColors: Record<string, string> = {
-  text: 'blue', number: 'green', image: 'purple', tag: 'orange', boolean: 'cyan', select: 'magenta', range: 'volcano',
+  text: 'blue', number: 'green', image: 'purple', tag: 'orange', 'rich-table': 'geekblue',
 }
 
-const elementColors: Record<string, string> = {
-  '无属性': 'default', '火属性': 'red', '水属性': 'blue', '风属性': 'cyan',
-  '地属性': 'brown', '毒属性': 'purple', '暗属性': 'volcano', '圣属性': 'gold',
-}
-
-export default function WikiMonstersPage() {
+export default function WikiMapsPage() {
   const [fields, setFields] = useState<WikiField[]>(initialFields)
   const [activeTab, setActiveTab] = useState<'data' | 'fields'>('data')
   const [searchText, setSearchText] = useState('')
-  const [elementFilter, setElementFilter] = useState<string>('all')
-  const [raceFilter, setRaceFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [regionFilter, setRegionFilter] = useState<string>('all')
 
   const [fieldModalOpen, setFieldModalOpen] = useState(false)
   const [editingField, setEditingField] = useState<WikiField | null>(null)
@@ -93,11 +83,11 @@ export default function WikiMonstersPage() {
   const [messageApi, contextHolder] = message.useMessage()
 
   const sortedFields = [...fields].sort((a, b) => a.order - b.order)
-  const filteredMonsters = mockMonsters.filter(m => {
+  const filteredMaps = mockMaps.filter(m => {
     const matchSearch = m.name.includes(searchText) || String(m.id).includes(searchText)
-    const matchElement = elementFilter === 'all' || m.element === elementFilter
-    const matchRace = raceFilter === 'all' || m.race === raceFilter
-    return matchSearch && matchElement && matchRace
+    const matchType = typeFilter === 'all' || m.type === typeFilter
+    const matchRegion = regionFilter === 'all' || m.region === regionFilter
+    return matchSearch && matchType && matchRegion
   })
   const visibleFields = sortedFields.filter(f => f.visible)
 
@@ -107,7 +97,6 @@ export default function WikiMonstersPage() {
     .map(f => f.key)
   const validListFieldKeys = listFieldKeys.filter(k => allowedFieldKeys.includes(k))
 
-  // ── 字段操作 ──────────────────────────────────────────────
   const openAddModal = () => {
     setEditingField(null)
     form.resetFields()
@@ -154,7 +143,6 @@ export default function WikiMonstersPage() {
     messageApi.success('多语言配置已保存')
   }
 
-  // ── 拖拽排序 ──────────────────────────────────────────────
   const handleDragStart = (index: number) => { dragIndex.current = index }
   const handleDragOver = (e: React.DragEvent, index: number) => { e.preventDefault(); dragOverIndex.current = index }
   const handleDrop = () => {
@@ -166,7 +154,6 @@ export default function WikiMonstersPage() {
     dragIndex.current = null; dragOverIndex.current = null
   }
 
-  // ── 数据表格列 ────────────────────────────────────────────
   const dataColumns = [
     ...visibleFields.map(field => ({
       title: field.label,
@@ -175,9 +162,8 @@ export default function WikiMonstersPage() {
       sorter: field.sortable ? true : undefined,
       render: (val: unknown) => {
         if (field.type === 'image') return <span style={{ fontSize: 20 }}>{val as string}</span>
-        if (field.key === 'element') return <Tag color={elementColors[val as string] ?? 'default'}>{val as string}</Tag>
         if (field.type === 'tag') return <Tag>{val as string}</Tag>
-        if (field.type === 'select') return <Tag>{val as string}</Tag>
+        if (field.type === 'rich-table') return <Tag color="geekblue" style={{ fontSize: 11 }}>富媒体表</Tag>
         return <span style={{ fontSize: 13 }}>{String(val ?? '—')}</span>
       },
     })),
@@ -191,7 +177,6 @@ export default function WikiMonstersPage() {
     )},
   ]
 
-  // ── 字段配置表格列 ────────────────────────────────────────
   const fieldColumns = [
     {
       title: '字段 Key', dataIndex: 'key', key: 'key',
@@ -234,52 +219,49 @@ export default function WikiMonstersPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {contextHolder}
-      <PageBreadcrumb items={[{ label: 'Wiki 管理', href: '/wiki' }, { label: '怪物管理' }]} />
+      <PageBreadcrumb items={[{ label: 'Wiki 管理', href: '/wiki' }, { label: '地图管理' }]} />
 
       <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-        {/* 页头 */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#111827' }}>怪物管理</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6B7280' }}>管理前台 Wiki 怪物页面的数据与字段配置</p>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#111827' }}>地图管理</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6B7280' }}>管理前台 Wiki 地图页面的数据与字段配置</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button style={{ borderRadius: 6 }} onClick={() => setActiveTab(activeTab === 'data' ? 'fields' : 'data')}>
               {activeTab === 'data' ? '⚙️ 字段配置' : '📋 数据列表'}
             </Button>
             {activeTab === 'data'
-              ? <Button type="primary" icon={<Plus size={14} />} style={{ borderRadius: 6 }}>新增怪物</Button>
+              ? <Button type="primary" icon={<Plus size={14} />} style={{ borderRadius: 6 }}>新增地图</Button>
               : <Button type="primary" icon={<Plus size={14} />} style={{ borderRadius: 6 }} onClick={openAddModal}>新增字段</Button>
             }
           </div>
         </div>
 
-        {/* ── 数据列表 ── */}
         {activeTab === 'data' && (
           <div style={{ padding: '16px 20px' }}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              <Input placeholder="搜索怪物名称或 ID" prefix={<Search size={14} style={{ color: '#9CA3AF' }} />}
+              <Input placeholder="搜索地图名称或 ID" prefix={<Search size={14} style={{ color: '#9CA3AF' }} />}
                 value={searchText} onChange={e => setSearchText(e.target.value)} style={{ width: 220, borderRadius: 6 }} />
-              <Select value={elementFilter} onChange={setElementFilter} style={{ width: 120 }}>
-                <Option value="all">全部属性</Option>
-                {['无属性','火属性','水属性','风属性','地属性','毒属性','暗属性','圣属性'].map(v => <Option key={v} value={v}>{v}</Option>)}
+              <Select value={typeFilter} onChange={setTypeFilter} style={{ width: 120 }}>
+                <Option value="all">全部类型</Option>
+                <Option value="城镇">城镇</Option>
+                <Option value="野外">野外</Option>
+                <Option value="地下城">地下城</Option>
               </Select>
-              <Select value={raceFilter} onChange={setRaceFilter} style={{ width: 120 }}>
-                <Option value="all">全部种族</Option>
-                {['植物','昆虫','不死','蜥蜴','兽人','精灵','恶魔','变形'].map(v => <Option key={v} value={v}>{v}</Option>)}
+              <Select value={regionFilter} onChange={setRegionFilter} style={{ width: 160 }}>
+                <Option value="all">全部区域</Option>
+                <Option value="卢恩-米德加兹">卢恩-米德加兹</Option>
               </Select>
-              <div style={{ marginLeft: 'auto', fontSize: 13, color: '#6B7280', display: 'flex', alignItems: 'center' }}>共 {filteredMonsters.length} 条</div>
+              <div style={{ marginLeft: 'auto', fontSize: 13, color: '#6B7280', display: 'flex', alignItems: 'center' }}>共 {filteredMaps.length} 条</div>
             </div>
-            <Table dataSource={filteredMonsters} columns={dataColumns} rowKey="id" size="small"
+            <Table dataSource={filteredMaps} columns={dataColumns} rowKey="id" size="small"
               pagination={{ pageSize: 10, showSizeChanger: false }} scroll={{ x: 'max-content' }} />
           </div>
         )}
 
-        {/* ── 字段配置 ── */}
         {activeTab === 'fields' && (
           <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-            {/* 模块一：字段列表 */}
             <div>
               <div style={{ marginBottom: 10 }}>
                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827' }}>字段配置</h3>
@@ -294,7 +276,6 @@ export default function WikiMonstersPage() {
 
             <div style={{ borderTop: '1px solid #E5E7EB' }} />
 
-            {/* 模块二：列表样式 */}
             <div>
               <div style={{ marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827' }}>列表样式</h3>
@@ -304,7 +285,6 @@ export default function WikiMonstersPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                {/* 左侧：样式选择 + 字段勾选 */}
                 <div style={{ width: 320, flexShrink: 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                     {LIST_STYLES.map(s => (
@@ -345,7 +325,6 @@ export default function WikiMonstersPage() {
                     ))}
                   </div>
 
-                  {/* 字段勾选 */}
                   <div style={{ padding: '12px 14px', border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA' }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
                       选择展示字段
@@ -402,7 +381,6 @@ export default function WikiMonstersPage() {
                   </div>
                 </div>
 
-                {/* 右侧：前端预览 */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 10 }}>
                     前端预览
@@ -428,7 +406,6 @@ export default function WikiMonstersPage() {
         )}
       </div>
 
-      {/* 新增 / 编辑字段弹窗 */}
       <Modal
         title={editingField ? '编辑字段' : '新增字段'}
         open={fieldModalOpen}
@@ -445,10 +422,10 @@ export default function WikiMonstersPage() {
               { pattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/, message: '只能包含字母、数字和下划线' },
             ]}
           >
-            <Input placeholder="如：drop_rate" disabled={!!editingField} />
+            <Input placeholder="如：map_level" disabled={!!editingField} />
           </Form.Item>
           <Form.Item name="label" label="显示名称（中文）" rules={[{ required: true, message: '请输入显示名称' }]}>
-            <Input placeholder="如：掉落率" />
+            <Input placeholder="如：地图等级" />
           </Form.Item>
           <Form.Item name="type" label="字段类型" rules={[{ required: true }]}>
             <Select>
@@ -471,7 +448,6 @@ export default function WikiMonstersPage() {
         </Form>
       </Modal>
 
-      {/* 多语言配置弹窗 */}
       {i18nTarget && (
         <FieldI18nModal
           open={i18nModalOpen}
