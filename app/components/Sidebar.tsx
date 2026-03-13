@@ -6,6 +6,7 @@ import { useLeaveGuard } from '../context/LeaveGuardContext'
 import {
   MessageSquare, FileText, User, Monitor, Shield,
   ChevronDown, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
+  BookOpen,
 } from 'lucide-react'
 
 type ChildItem = { label: string; key: string }
@@ -33,6 +34,7 @@ const MENU: MenuItem[] = [
   },
   { label: '内容管理', key: '/content', icon: FileText, children: [] },
   { label: '用户管理', key: '/users', icon: User, children: [] },
+  { label: 'Wiki 管理', key: '/wiki', icon: BookOpen, children: [] },
   { label: '平台管理', key: '/platform', icon: Monitor, children: [] },
   { label: '权限管理', key: '/permissions', icon: Shield, children: [] },
 ]
