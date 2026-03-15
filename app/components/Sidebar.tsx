@@ -26,6 +26,7 @@ const MENU: MenuItem[] = [
       { label: '论坛列表', key: '/forum/list' },
       { label: '官方内容', key: '/forum/official' },
       { label: '金刚位', key: '/forum/diamond' },
+      { label: '社区导航', key: '/forum/community-nav' },
       { label: '公告', key: '/forum/announcement' },
       { label: '分区管理', key: '/tab-route' },
       { label: '集合页管理', key: '/collection-pages' },

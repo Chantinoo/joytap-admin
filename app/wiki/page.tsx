@@ -5,7 +5,7 @@ import {
   Table, Button, Tag, Space, Input, Select, Modal, Form, Switch,
   Tooltip, Popconfirm, message, Checkbox, Tabs,
 } from 'antd'
-import { Plus, Edit2, Trash2, ExternalLink, GripVertical, Search, Languages } from 'lucide-react'
+import { Plus, Edit2, Trash2, ExternalLink, Search, Languages } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import GameFilter from '../components/GameFilter'
@@ -20,6 +20,7 @@ interface WikiNav {
   key: string
   label: string
   description: string
+  link: string
   enabled: boolean
   fieldCount: number
   order: number
@@ -48,16 +49,16 @@ const fieldTypeColors: Record<FieldType, string> = {
 // Nav data
 // ─────────────────────────────────────────────
 const initialNavs: WikiNav[] = [
-  { key: 'items',    label: '道具',     description: '武器、防具、消耗品、材料等游戏道具',   enabled: true,  fieldCount: 11, order: 1 },
-  { key: 'monsters', label: '怪物',     description: '普通怪物、MVP、Mini Boss 等',         enabled: true,  fieldCount: 13, order: 2 },
-  { key: 'cards',    label: '卡片',     description: '怪物掉落卡片及其效果',               enabled: true,  fieldCount: 8,  order: 3 },
-  { key: 'pets',     label: '宠物',     description: '可捕获的宠物及其属性、亲密度等',     enabled: true,  fieldCount: 9,  order: 4 },
-  { key: 'boxes',    label: '箱子',     description: '宝箱、礼包等可开启的容器类道具',     enabled: true,  fieldCount: 6,  order: 5 },
-  { key: 'arrows',   label: '箭矢制作', description: '弓箭手系列箭矢的制作配方',           enabled: true,  fieldCount: 7,  order: 6 },
-  { key: 'sets',     label: '套装',     description: '装备套装组合及套装效果',             enabled: true,  fieldCount: 8,  order: 7 },
-  { key: 'skills',   label: '技能模拟', description: '各职业技能树与技能效果模拟',         enabled: false, fieldCount: 12, order: 8 },
-  { key: 'npcs',     label: 'NPC',      description: '游戏内 NPC 位置、功能与对话',        enabled: true,  fieldCount: 7,  order: 9 },
-  { key: 'maps',     label: '地图',     description: '游戏地图信息、怪物分布与传送点',     enabled: true,  fieldCount: 10, order: 10 },
+  { key: 'items',    label: '道具',     description: '武器、防具、消耗品、材料等游戏道具',   link: '/wiki/items',    enabled: true,  fieldCount: 11, order: 1 },
+  { key: 'monsters', label: '怪物',     description: '普通怪物、MVP、Mini Boss 等',         link: '/wiki/monsters', enabled: true,  fieldCount: 13, order: 2 },
+  { key: 'cards',    label: '卡片',     description: '怪物掉落卡片及其效果',               link: '/wiki/cards',    enabled: true,  fieldCount: 8,  order: 3 },
+  { key: 'pets',     label: '宠物',     description: '可捕获的宠物及其属性、亲密度等',     link: '/wiki/pets',     enabled: true,  fieldCount: 9,  order: 4 },
+  { key: 'boxes',    label: '箱子',     description: '宝箱、礼包等可开启的容器类道具',     link: '/wiki/boxes',    enabled: true,  fieldCount: 6,  order: 5 },
+  { key: 'arrows',   label: '箭矢制作', description: '弓箭手系列箭矢的制作配方',           link: '/wiki/arrows',   enabled: true,  fieldCount: 7,  order: 6 },
+  { key: 'sets',     label: '套装',     description: '装备套装组合及套装效果',             link: '/wiki/sets',     enabled: true,  fieldCount: 8,  order: 7 },
+  { key: 'skills',   label: '技能模拟', description: '各职业技能树与技能效果模拟',         link: '/wiki/skills',   enabled: false, fieldCount: 12, order: 8 },
+  { key: 'npcs',     label: 'NPC',      description: '游戏内 NPC 位置、功能与对话',        link: '/wiki/npcs',     enabled: true,  fieldCount: 7,  order: 9 },
+  { key: 'maps',     label: '地图',     description: '游戏地图信息、怪物分布与传送点',     link: '/wiki/maps',     enabled: true,  fieldCount: 10, order: 10 },
 ]
 
 // ─────────────────────────────────────────────
@@ -124,9 +125,6 @@ function WikiManageInner() {
   const [editingNav, setEditingNav] = useState<WikiNav | null>(null)
   const [navForm] = Form.useForm()
 
-  const navDragIndex = useRef<number | null>(null)
-  const navDragOverIndex = useRef<number | null>(null)
-
   const sortedNavs = [...navs].sort((a, b) => a.order - b.order)
 
   const openAddNavModal = () => {
@@ -151,7 +149,8 @@ function WikiManageInner() {
         const keyExists = navs.some(n => n.key === values.key)
         if (keyExists) { messageApi.error('导航 Key 已存在'); return }
         const maxOrder = Math.max(...navs.map(n => n.order), 0)
-        setNavs(prev => [...prev, { ...values, order: maxOrder + 1, fieldCount: 0 }])
+        const link = `/wiki/${values.key}`
+        setNavs(prev => [...prev, { ...values, link, order: maxOrder + 1, fieldCount: 0 }])
         messageApi.success('导航已新增')
       }
       setNavModalOpen(false)
@@ -161,23 +160,6 @@ function WikiManageInner() {
   const handleNavDelete = (key: string) => {
     setNavs(prev => prev.filter(n => n.key !== key))
     messageApi.success('导航已删除')
-  }
-
-  const handleNavToggleEnabled = (key: string, enabled: boolean) => {
-    setNavs(prev => prev.map(n => n.key === key ? { ...n, enabled } : n))
-  }
-
-  const handleNavDragStart = (index: number) => { navDragIndex.current = index }
-  const handleNavDragOver = (e: React.DragEvent, index: number) => { e.preventDefault(); navDragOverIndex.current = index }
-  const handleNavDrop = () => {
-    if (navDragIndex.current === null || navDragOverIndex.current === null) return
-    if (navDragIndex.current === navDragOverIndex.current) return
-    const reordered = [...sortedNavs]
-    const [moved] = reordered.splice(navDragIndex.current, 1)
-    reordered.splice(navDragOverIndex.current, 0, moved)
-    setNavs(reordered.map((n, i) => ({ ...n, order: i + 1 })))
-    navDragIndex.current = null
-    navDragOverIndex.current = null
   }
 
   // ── 列表管理 state ────────────────────────────
@@ -248,7 +230,7 @@ function WikiManageInner() {
   const openAddFieldModal = () => {
     setEditingField(null)
     fieldForm.resetFields()
-    fieldForm.setFieldsValue({ visible: true, listDisplay: true, sortable: false, filterable: false, required: false, type: 'text' })
+    fieldForm.setFieldsValue({ required: false, type: 'text' })
     setFieldModalOpen(true)
   }
 
@@ -260,13 +242,14 @@ function WikiManageInner() {
 
   const handleFieldSave = () => {
     fieldForm.validateFields().then(values => {
+      const defaults = { visible: true, listDisplay: true, sortable: false, filterable: false }
       if (editingField) {
         setCurrentFields(prev => prev.map(f => f.key === editingField.key ? { ...f, ...values } : f))
         messageApi.success('字段已更新')
       } else {
         if (currentFields.some(f => f.key === values.key)) { messageApi.error('字段 Key 已存在'); return }
         const maxOrder = Math.max(...currentFields.map(f => f.order), 0)
-        setCurrentFields(prev => [...prev, { ...values, i18n: { zh: values.label }, order: maxOrder + 1 }])
+        setCurrentFields(prev => [...prev, { ...defaults, ...values, i18n: { zh: values.label }, order: maxOrder + 1 }])
         messageApi.success('字段已新增')
       }
       setFieldModalOpen(false)
@@ -305,15 +288,6 @@ function WikiManageInner() {
   // ── 导航管理表格列 ─────────────────────────────
   const navColumns = [
     {
-      title: '', key: 'drag', width: 36,
-      render: (_: unknown, __: WikiNav, index: number) => (
-        <div draggable onDragStart={() => handleNavDragStart(index)} onDragOver={e => handleNavDragOver(e, index)} onDrop={handleNavDrop}
-          style={{ cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <GripVertical size={14} style={{ color: '#9CA3AF' }} />
-        </div>
-      ),
-    },
-    {
       title: '导航名称', dataIndex: 'label', key: 'label', width: 160,
       render: (v: string, record: WikiNav) => (
         <div>
@@ -323,24 +297,24 @@ function WikiManageInner() {
       ),
     },
     {
-      title: '说明', dataIndex: 'description', key: 'description', width: 360,
+      title: '说明', dataIndex: 'description', key: 'description', width: 300,
       render: (v: string) => <span style={{ fontSize: 13, color: '#6B7280' }}>{v}</span>,
+    },
+    {
+      title: '链接', dataIndex: 'link', key: 'link', width: 160,
+      render: (v: string) => (
+        <span style={{ fontSize: 12, color: '#1890ff', textDecoration: 'underline', cursor: 'pointer' }}>{v}</span>
+      ),
     },
     {
       title: '字段数', dataIndex: 'fieldCount', key: 'fieldCount', width: 72, align: 'center' as const,
       render: (v: number) => <Tag color="blue">{v} 个</Tag>,
     },
     {
-      title: '前台启用', dataIndex: 'enabled', key: 'enabled', width: 80, align: 'center' as const,
-      render: (val: boolean, record: WikiNav) => (
-        <Switch size="small" checked={val} onChange={checked => handleNavToggleEnabled(record.key, checked)} />
-      ),
-    },
-    {
       title: '操作', key: 'action', width: 180,
       render: (_: unknown, record: WikiNav) => (
         <Space size={4}>
-          <Tooltip title="进入管理">
+          <Tooltip title="进入配置">
             <Button size="small" type="link" icon={<ExternalLink size={13} />}
               onClick={() => {
                 if (record.key === 'npcs' || record.key === 'maps') {
@@ -350,7 +324,7 @@ function WikiManageInner() {
                   setSelectedNavKey(record.key)
                 }
               }}>
-              管理
+              配置
             </Button>
           </Tooltip>
           <Button size="small" type="text" icon={<Edit2 size={13} />} onClick={() => openEditNavModal(record)}>编辑</Button>
@@ -421,7 +395,7 @@ function WikiManageInner() {
           style={{ padding: '0 20px' }}
           items={[
             { key: 'nav', label: '导航管理' },
-            { key: 'list', label: '列表管理' },
+            { key: 'list', label: 'wiki 配置' },
           ]}
         />
 
@@ -457,7 +431,7 @@ function WikiManageInner() {
             {/* 提示 */}
             <div style={{ padding: '12px 20px 0' }}>
               <div style={{ padding: '10px 14px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 6, fontSize: 13, color: '#92400E' }}>
-                💡 拖拽左侧 <GripVertical size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> 图标可调整导航在前台的显示顺序。点击「管理」进入该导航的字段与数据管理。
+                💡 点击「配置」进入该导航的字段与数据管理。
               </div>
             </div>
 
@@ -469,19 +443,12 @@ function WikiManageInner() {
                 rowKey="key"
                 size="small"
                 pagination={false}
-                onRow={(_, index) => ({
-                  draggable: true,
-                  onDragStart: () => handleNavDragStart(index!),
-                  onDragOver: (e: React.DragEvent) => handleNavDragOver(e, index!),
-                  onDrop: handleNavDrop,
-                  style: { cursor: 'default' },
-                })}
               />
             </div>
           </div>
         )}
 
-        {/* ══ 列表管理 ══ */}
+        {/* ══ wiki 配置 ══ */}
         {mainTab === 'list' && (
           <div style={{ padding: '0 20px 24px' }}>
             {/* 导航选择器 */}
@@ -1048,15 +1015,9 @@ function WikiManageInner() {
               <Select.Option value="rich-table">rich-table — 富媒体表</Select.Option>
             </Select>
           </Form.Item>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
-            <Form.Item name="visible" label="前台显示" valuePropName="checked"><Switch /></Form.Item>
-            <Form.Item name="listDisplay" label="列表展示" valuePropName="checked"><Switch /></Form.Item>
-            <Form.Item name="sortable" label="可排序" valuePropName="checked"><Switch /></Form.Item>
-            <Form.Item name="filterable" label="可筛选" valuePropName="checked"><Switch /></Form.Item>
-            <Form.Item name="required" label="必填" valuePropName="checked">
-              <Switch disabled={!!editingField && editingField.required} />
-            </Form.Item>
-          </div>
+          <Form.Item name="required" label="必填" valuePropName="checked">
+            <Switch disabled={!!editingField && editingField.required} />
+          </Form.Item>
         </Form>
       </Modal>
 
