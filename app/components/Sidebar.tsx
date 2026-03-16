@@ -6,7 +6,7 @@ import { useLeaveGuard } from '../context/LeaveGuardContext'
 import {
   MessageSquare, FileText, User, Monitor, Shield,
   ChevronDown, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
-  BookOpen,
+  BookOpen, PenLine,
 } from 'lucide-react'
 
 type ChildItem = { label: string; key: string }
@@ -34,7 +34,26 @@ const MENU: MenuItem[] = [
     ],
   },
   { label: '内容管理', key: '/content', icon: FileText, children: [] },
-  { label: '用户管理', key: '/users', icon: User, children: [] },
+  {
+    label: '用户管理',
+    key: '/users',
+    icon: User,
+    children: [
+      { label: '用户列表', key: '/users' },
+      { label: '认证账号', key: '/users/certified' },
+    ],
+  },
+  {
+    label: '创作者管理',
+    key: '/creator',
+    icon: PenLine,
+    children: [
+      { label: '认证创作者', key: '/creator/creators' },
+      { label: '返利管理', key: '/creator/rebate' },
+      { label: '素材库管理', key: '/creator/materials' },
+      { label: '多语言审校管理', key: '/creator/review' },
+    ],
+  },
   { label: 'Wiki 管理', key: '/wiki', icon: BookOpen, children: [] },
   { label: '平台管理', key: '/platform', icon: Monitor, children: [] },
   { label: '权限管理', key: '/permissions', icon: Shield, children: [] },
@@ -212,7 +231,8 @@ export default function Sidebar() {
 
               {/* Children */}
               {!collapsed && isOpen && item.children!.map(child => {
-                const isActive = pathname?.startsWith(child.key)
+                const isPrefixOfOther = item.children!.some(c => c.key !== child.key && pathname?.startsWith(c.key))
+                const isActive = pathname === child.key || (pathname?.startsWith(child.key + '/') && !isPrefixOfOther)
                 return (
                   <div
                     key={child.key}
