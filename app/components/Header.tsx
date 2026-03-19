@@ -13,25 +13,37 @@ const ROLE_LABELS: Record<AdminRole, string> = {
   vendor: '厂商',
 }
 
-const FORUM_FILTER_PATHS = [
+// 显示游戏筛选器且包含「全部」选项的页面（可选）
+const FILTER_OPTIONAL_PATHS = [
   '/users/certified',
   '/creator/creators',
   '/creator/rebate',
-  '/wiki',
-  '/tab-route',
-  '/collection-pages',
-  '/download-button',
-  '/forum/community-nav',
+  '/creator/materials',
+  '/creator/review',
+  '/forum/official',
 ]
 
-function useShowForumFilter() {
+// 论坛资源模块：显示游戏筛选器但不含「全部」选项（必选）
+const FILTER_REQUIRED_PATHS = [
+  '/forum/community-nav',
+  '/forum/diamond',
+  '/forum/announcement',
+  '/tab-route',
+  '/collection-pages',
+  '/wiki',
+  '/download-button',
+]
+
+function useForumFilterMode(): 'optional' | 'required' | 'none' {
   const pathname = usePathname()
-  return FORUM_FILTER_PATHS.some((p) => pathname?.startsWith(p))
+  if (FILTER_REQUIRED_PATHS.some((p) => pathname?.startsWith(p))) return 'required'
+  if (FILTER_OPTIONAL_PATHS.some((p) => pathname?.startsWith(p))) return 'optional'
+  return 'none'
 }
 
 export default function Header() {
   const [mounted, setMounted] = useState(false)
-  const showForumFilter = useShowForumFilter()
+  const filterMode = useForumFilterMode()
   const forumFilter = useForumFilter()
   const roleContext = useRole()
 
@@ -51,24 +63,27 @@ export default function Header() {
       gap: 16,
       flexShrink: 0,
     }}>
-      {/* 全局论坛筛选（仅在有论坛筛选的页面显示，客户端挂载后渲染避免 hydration 不一致） */}
-      {mounted && showForumFilter && forumFilter && (
-        <Select
-          value={forumFilter.forumId || undefined}
-          onChange={(v) => forumFilter.setForumId(v ?? '')}
-          style={{ width: 140 }}
-          size="middle"
-          allowClear
-          placeholder="全部"
-          getPopupContainer={() => document.body}
-          popupMatchSelectWidth={140}
-          styles={{ popup: { root: { zIndex: 9999 } } }}
-          virtual={false}
-          options={[
-            { label: '全部', value: '' },
-            ...forumFilter.forumOptions.map((f) => ({ label: f.name, value: f.id })),
-          ]}
-        />
+      {/* 全局游戏筛选（客户端挂载后渲染避免 hydration 不一致） */}
+      {mounted && filterMode !== 'none' && forumFilter && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, color: '#6B7280', whiteSpace: 'nowrap' }}>游戏：</span>
+          <Select
+            value={forumFilter.forumId || undefined}
+            onChange={(v) => forumFilter.setForumId(v ?? '')}
+            style={{ width: 140 }}
+            size="middle"
+            allowClear={filterMode === 'optional'}
+            placeholder={filterMode === 'optional' ? '全部' : '请选择游戏'}
+            getPopupContainer={() => document.body}
+            popupMatchSelectWidth={140}
+            styles={{ popup: { root: { zIndex: 9999 } } }}
+            virtual={false}
+            options={[
+              ...(filterMode === 'optional' ? [{ label: '全部', value: '' }] : []),
+              ...forumFilter.forumOptions.map((f) => ({ label: f.name, value: f.id })),
+            ]}
+          />
+        </div>
       )}
 
       {/* 语言切换 */}

@@ -1,13 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useLeaveGuard } from '../context/LeaveGuardContext'
 import { useRole, VENDOR_RESTRICTED_KEYS } from '../context/RoleContext'
 import {
   MessageSquare, FileText, User, Monitor, Shield,
   ChevronDown, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
-  BookOpen, PenLine,
+  PenLine,
 } from 'lucide-react'
 
 type ChildItem = { label: string; key: string; href?: string; activeWhen?: 'exact' | 'prefix' }
@@ -24,25 +24,14 @@ const MENU: MenuItem[] = [
     key: '/forum',
     icon: MessageSquare,
     children: [
-      { label: '论坛列表', key: '/forum/list' },
-      { label: '官方内容', key: '/forum/official' },
+      { label: '论坛', key: '/forum/list' },
       { label: '金刚位', key: '/forum/diamond' },
       { label: '社区导航', key: '/forum/community-nav' },
       { label: '置顶', key: '/forum/announcement' },
-      { label: '分区', key: '/tab-route', activeWhen: 'exact' },
-      { label: '管理内容', key: '/tab-route', href: '/tab-route', activeWhen: 'prefix' },
-      { label: '集合页', key: '/collection-pages', activeWhen: 'exact' },
-      { label: '管理帖子', key: '/collection-pages', href: '/collection-pages', activeWhen: 'prefix' },
+      { label: '分区', key: '/tab-route' },
+      { label: '集合页', key: '/collection-pages' },
+      { label: 'Wiki 管理', key: '/wiki', href: '/wiki' },
       { label: '下载按钮', key: '/download-button' },
-    ],
-  },
-  {
-    label: 'Wiki 管理',
-    key: '/wiki',
-    icon: BookOpen,
-    children: [
-      { label: '导航管理', key: '/wiki', href: '/wiki' },
-      { label: 'Wiki 配置', key: '/wiki/config', href: '/wiki?tab=list' },
     ],
   },
   {
@@ -52,6 +41,7 @@ const MENU: MenuItem[] = [
     children: [
       { label: '帖子', key: '/content' },
       { label: '话题', key: '/content/topics' },
+      { label: '官方内容', key: '/forum/official' },
     ],
   },
   {
@@ -59,8 +49,8 @@ const MENU: MenuItem[] = [
     key: '/users',
     icon: User,
     children: [
-      { label: '认证账号', key: '/users/certified' },
       { label: '用户列表', key: '/users' },
+      { label: '认证账号', key: '/users/certified' },
       { label: '马甲号', key: '/users/sockpuppet' },
     ],
   },
@@ -97,7 +87,6 @@ const MENU: MenuItem[] = [
 export default function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const leaveGuard = useLeaveGuard()
   const role = useRole()
   const [collapsed, setCollapsed] = useState(false)
@@ -277,7 +266,6 @@ export default function Sidebar() {
               {!collapsed && isOpen && item.children!.map(child => {
                 const href = child.href ?? child.key
                 const basePath = child.key.replace(/\/config$/, '')
-                const tabParam = searchParams?.get('tab')
                 // 若存在兄弟项的 key 以当前 key 为前缀（如 /users 与 /users/sockpuppet），则当前项仅做精确匹配，避免同时高亮
                 const hasLongerSibling = item.children!.some(c => c.key !== child.key && c.key.startsWith(child.key + '/'))
                 let isActive: boolean
@@ -285,10 +273,6 @@ export default function Sidebar() {
                   isActive = pathname === child.key
                 } else if (child.activeWhen === 'prefix') {
                   isActive = !!pathname?.startsWith(child.key + '/')
-                } else if (child.key === '/wiki/config') {
-                  isActive = pathname === '/wiki' && tabParam === 'list'
-                } else if (child.key === '/wiki') {
-                  isActive = pathname === '/wiki' && tabParam !== 'list'
                 } else if (hasLongerSibling) {
                   isActive = pathname === child.key
                 } else {

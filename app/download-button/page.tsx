@@ -6,7 +6,6 @@ import dayjs from 'dayjs'
 import { ClipboardPaste, Plus, Trash2 } from 'lucide-react'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
-import { useLeaveGuard } from '../context/LeaveGuardContext'
 import type { DownloadChannelConfig, ReservedUserInfo } from '../types'
 
 /** 渠道名称固定选项 */
@@ -216,8 +215,6 @@ export default function DownloadButtonPage() {
   const [pageUpdatedAt, setPageUpdatedAt] = useState(initialChannels[0]?.updatedAt ?? now())
   const [reservedListChannelId, setReservedListChannelId] = useState<string | null>(null)
   const [messageApi, contextHolder] = message.useMessage()
-  const leaveGuard = useLeaveGuard()
-
   const reservationChannels = channels.filter((c) => c.buttonName === '预约')
 
   const effectiveChannels =
@@ -257,19 +254,6 @@ export default function DownloadButtonPage() {
     messageApi.success('保存成功，前台将按当前配置展示')
   }, [channels, reservationConfigMode, unifiedReservation, reservationChannels.length, messageApi])
 
-  useEffect(() => {
-    if (!leaveGuard) return
-    leaveGuard.setGuard(() => isDirty, handleSave)
-    return () => leaveGuard.clearGuard()
-  }, [leaveGuard, isDirty, handleSave])
-
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) e.preventDefault()
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [isDirty])
 
   const updateChannel = (id: string, patch: Partial<DownloadChannelConfig>) => {
     const withType =
