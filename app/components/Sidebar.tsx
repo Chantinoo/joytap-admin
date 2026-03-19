@@ -1,15 +1,16 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useLeaveGuard } from '../context/LeaveGuardContext'
+import { useRole, VENDOR_RESTRICTED_KEYS } from '../context/RoleContext'
 import {
   MessageSquare, FileText, User, Monitor, Shield,
   ChevronDown, ChevronRight, Settings, PanelLeftClose, PanelLeftOpen,
   BookOpen, PenLine,
 } from 'lucide-react'
 
-type ChildItem = { label: string; key: string }
+type ChildItem = { label: string; key: string; href?: string; activeWhen?: 'exact' | 'prefix' }
 type MenuItem = {
   label: string
   key: string
@@ -19,7 +20,7 @@ type MenuItem = {
 
 const MENU: MenuItem[] = [
   {
-    label: '论坛管理',
+    label: '论坛资源',
     key: '/forum',
     icon: MessageSquare,
     children: [
@@ -27,20 +28,40 @@ const MENU: MenuItem[] = [
       { label: '官方内容', key: '/forum/official' },
       { label: '金刚位', key: '/forum/diamond' },
       { label: '社区导航', key: '/forum/community-nav' },
-      { label: '公告', key: '/forum/announcement' },
-      { label: '分区管理', key: '/tab-route' },
-      { label: '集合页管理', key: '/collection-pages' },
+      { label: '置顶', key: '/forum/announcement' },
+      { label: '分区', key: '/tab-route', activeWhen: 'exact' },
+      { label: '管理内容', key: '/tab-route', href: '/tab-route', activeWhen: 'prefix' },
+      { label: '集合页', key: '/collection-pages', activeWhen: 'exact' },
+      { label: '管理帖子', key: '/collection-pages', href: '/collection-pages', activeWhen: 'prefix' },
       { label: '下载按钮', key: '/download-button' },
     ],
   },
-  { label: '内容管理', key: '/content', icon: FileText, children: [] },
   {
-    label: '用户管理',
+    label: 'Wiki 管理',
+    key: '/wiki',
+    icon: BookOpen,
+    children: [
+      { label: '导航管理', key: '/wiki', href: '/wiki' },
+      { label: 'Wiki 配置', key: '/wiki/config', href: '/wiki?tab=list' },
+    ],
+  },
+  {
+    label: '内容',
+    key: '/content',
+    icon: FileText,
+    children: [
+      { label: '帖子', key: '/content' },
+      { label: '话题', key: '/content/topics' },
+    ],
+  },
+  {
+    label: '用户',
     key: '/users',
     icon: User,
     children: [
-      { label: '用户列表', key: '/users' },
       { label: '认证账号', key: '/users/certified' },
+      { label: '用户列表', key: '/users' },
+      { label: '马甲号', key: '/users/sockpuppet' },
     ],
   },
   {
@@ -50,20 +71,39 @@ const MENU: MenuItem[] = [
     children: [
       { label: '认证创作者', key: '/creator/creators' },
       { label: '返利管理', key: '/creator/rebate' },
-      { label: '素材库管理', key: '/creator/materials' },
-      { label: '多语言审校管理', key: '/creator/review' },
+      { label: '素材库管理（待定）', key: '/creator/materials' },
+      { label: '多语言审校管理（待定）', key: '/creator/review' },
     ],
   },
-  { label: 'Wiki 管理', key: '/wiki', icon: BookOpen, children: [] },
-  { label: '平台管理', key: '/platform', icon: Monitor, children: [] },
-  { label: '权限管理', key: '/permissions', icon: Shield, children: [] },
+  {
+    label: '平台',
+    key: '/platform',
+    icon: Monitor,
+    children: [
+      { label: '应用', key: '/platform' },
+    ],
+  },
+  {
+    label: '权限',
+    key: '/permissions',
+    icon: Shield,
+    children: [
+      { label: '角色', key: '/permissions' },
+      { label: '用户', key: '/permissions/users' },
+    ],
+  },
 ]
 
 export default function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const leaveGuard = useLeaveGuard()
+  const role = useRole()
   const [collapsed, setCollapsed] = useState(false)
+  const isVendor = role?.isVendor ?? false
+
+  const isRestricted = (key: string) => isVendor && VENDOR_RESTRICTED_KEYS.has(key)
 
   const navigateTo = (href: string) => {
     if (leaveGuard?.checkBeforeLeave) {
@@ -82,6 +122,9 @@ export default function Sidebar() {
   const toggleOpen = (key: string) => {
     setOpenKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
   }
+
+  const strikethroughStyle = (key: string): React.CSSProperties =>
+    isRestricted(key) ? { textDecoration: 'line-through', color: '#9CA3AF' } : {}
 
   return (
     <aside style={{
@@ -185,6 +228,7 @@ export default function Sidebar() {
                   fontSize: 13,
                   transition: 'all 0.15s',
                   userSelect: 'none',
+                  ...strikethroughStyle(item.key),
                 }}
                 onMouseEnter={e => { if (!isLeafActive) (e.currentTarget as HTMLDivElement).style.background = '#F9FAFB' }}
                 onMouseLeave={e => { if (!isLeafActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
@@ -231,12 +275,30 @@ export default function Sidebar() {
 
               {/* Children */}
               {!collapsed && isOpen && item.children!.map(child => {
-                const isPrefixOfOther = item.children!.some(c => c.key !== child.key && pathname?.startsWith(c.key))
-                const isActive = pathname === child.key || (pathname?.startsWith(child.key + '/') && !isPrefixOfOther)
+                const href = child.href ?? child.key
+                const basePath = child.key.replace(/\/config$/, '')
+                const tabParam = searchParams?.get('tab')
+                // 若存在兄弟项的 key 以当前 key 为前缀（如 /users 与 /users/sockpuppet），则当前项仅做精确匹配，避免同时高亮
+                const hasLongerSibling = item.children!.some(c => c.key !== child.key && c.key.startsWith(child.key + '/'))
+                let isActive: boolean
+                if (child.activeWhen === 'exact') {
+                  isActive = pathname === child.key
+                } else if (child.activeWhen === 'prefix') {
+                  isActive = !!pathname?.startsWith(child.key + '/')
+                } else if (child.key === '/wiki/config') {
+                  isActive = pathname === '/wiki' && tabParam === 'list'
+                } else if (child.key === '/wiki') {
+                  isActive = pathname === '/wiki' && tabParam !== 'list'
+                } else if (hasLongerSibling) {
+                  isActive = pathname === child.key
+                } else {
+                  isActive = pathname === child.key || !!pathname?.startsWith(basePath + '/')
+                }
+                const restricted = isRestricted(child.key)
                 return (
                   <div
-                    key={child.key}
-                    onClick={() => navigateTo(child.key)}
+                    key={child.key + child.label}
+                    onClick={() => navigateTo(href)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -247,6 +309,7 @@ export default function Sidebar() {
                       fontSize: 13,
                       transition: 'all 0.15s',
                       userSelect: 'none',
+                      ...(restricted && !isActive ? { textDecoration: 'line-through', color: '#9CA3AF' } : {}),
                     }}
                     onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = '#F3F4F6' }}
                     onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}

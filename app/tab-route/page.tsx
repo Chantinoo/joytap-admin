@@ -26,8 +26,8 @@ import {
 } from 'lucide-react'
 import { TabRoute } from '../types'
 import { initialTabRoutes } from '../data/mockData'
-import GameFilter from '../components/GameFilter'
 import PageBreadcrumb from '../components/PageBreadcrumb'
+import ForumSelectRequired from '../components/ForumSelectRequired'
 import dayjs from 'dayjs'
 
 function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -330,8 +330,7 @@ export default function TabRoutePage() {
 
       <PageBreadcrumb items={[{ label: '论坛管理', href: '/forum/list' }, { label: '分区管理' }]} />
 
-      <GameFilter />
-
+      <ForumSelectRequired>
       {/* 页面标题区 */}
       <div style={{
         display: 'flex',
@@ -425,6 +424,7 @@ export default function TabRoutePage() {
           </Form.Item>
         </Form>
       </Modal>
+      </ForumSelectRequired>
 
       <style jsx global>{`
         .fixed-row td {

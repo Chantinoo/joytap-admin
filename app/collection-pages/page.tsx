@@ -7,8 +7,8 @@ import type { ColumnsType } from 'antd/es/table'
 import { FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { CollectionPageData } from '../types'
 import { useCollectionPages } from '../context/CollectionPagesContext'
-import GameFilter from '../components/GameFilter'
 import PageBreadcrumb from '../components/PageBreadcrumb'
+import ForumSelectRequired from '../components/ForumSelectRequired'
 
 function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [editing, setEditing] = useState(false)
@@ -168,8 +168,7 @@ export default function CollectionPagesPage() {
 
       <PageBreadcrumb items={[{ label: '论坛管理', href: '/forum/list' }, { label: '集合页管理' }]} />
 
-      <GameFilter />
-
+      <ForumSelectRequired>
       <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <div style={{
           padding: '14px 20px',
@@ -241,6 +240,7 @@ export default function CollectionPagesPage() {
           </div>
         </Form>
       </Modal>
+      </ForumSelectRequired>
     </div>
   )
 }

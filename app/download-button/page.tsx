@@ -5,7 +5,7 @@ import { Avatar, Button, DatePicker, Input, message, Modal, Popconfirm, Radio, S
 import dayjs from 'dayjs'
 import { ClipboardPaste, Plus, Trash2 } from 'lucide-react'
 import PageBreadcrumb from '../components/PageBreadcrumb'
-import GameFilter from '../components/GameFilter'
+import ForumSelectRequired from '../components/ForumSelectRequired'
 import { useLeaveGuard } from '../context/LeaveGuardContext'
 import type { DownloadChannelConfig, ReservedUserInfo } from '../types'
 
@@ -355,9 +355,8 @@ export default function DownloadButtonPage() {
         ]}
       />
 
+      <ForumSelectRequired>
       {/* 1. 论坛查询 */}
-      <GameFilter />
-
       {/* 2. 渠道与链接配置 */}
       <div style={cardStyle()}>
         <div style={cardHeaderStyle()}>
@@ -790,6 +789,7 @@ export default function DownloadButtonPage() {
         open={!!reservedListChannelId}
         onClose={() => setReservedListChannelId(null)}
       />
+      </ForumSelectRequired>
     </div>
   )
 }

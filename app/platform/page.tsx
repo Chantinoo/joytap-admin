@@ -5,8 +5,8 @@ import UnderDevelopment from '../components/UnderDevelopment'
 export default function PlatformPage() {
   return (
     <UnderDevelopment
-      title="平台管理"
-      breadcrumbItems={[{ label: '平台管理' }]}
+      title="应用"
+      breadcrumbItems={[{ label: '平台', href: '/platform' }, { label: '应用' }]}
     />
   )
 }

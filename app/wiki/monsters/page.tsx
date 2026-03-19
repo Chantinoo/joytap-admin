@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react'
 import { Table, Button, Tag, Space, Input, Select, Switch, Modal, Form, Tooltip, Popconfirm, message, Checkbox } from 'antd'
 import { Plus, Search, Edit2, Trash2, Eye, GripVertical, Languages } from 'lucide-react'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
+import ForumSelectRequired from '../../components/ForumSelectRequired'
 import FieldI18nModal, { type I18nLabels, LANGUAGES } from '../components/FieldI18nModal'
 import ListStylePreview, { LIST_STYLES, type ListStyle } from '../components/ListStylePreview'
 
@@ -236,6 +237,7 @@ export default function WikiMonstersPage() {
       {contextHolder}
       <PageBreadcrumb items={[{ label: 'Wiki 管理', href: '/wiki' }, { label: '怪物管理' }]} />
 
+      <ForumSelectRequired>
       <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         {/* 页头 */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -482,6 +484,7 @@ export default function WikiMonstersPage() {
           onCancel={() => setI18nModalOpen(false)}
         />
       )}
+      </ForumSelectRequired>
     </div>
   )
 }

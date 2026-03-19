@@ -5,13 +5,8 @@ import { Table, Input, Tag, Button, message, Modal, Form, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { Search, Plus, Copy, Gift } from 'lucide-react'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
-
-// Mock 论坛列表
-const MOCK_FORUMS = [
-  { id: 'rox', name: '仙境传说3' },
-  { id: 'yjyj', name: '永劫无间' },
-  { id: 'ys', name: '原神' },
-]
+import { useForumFilter } from '../../context/ForumFilterContext'
+import { FORUM_OPTIONS } from '../../data/forums'
 
 // Mock 创作者列表（用于创建返利码时选择）
 const MOCK_CREATORS = [
@@ -65,6 +60,7 @@ const INIT_REBATE_RECORDS: RebateRecord[] = [
 const RATE_OPTIONS = [3, 5, 8, 10].map((v) => ({ label: `${v}%`, value: v }))
 
 export default function RebatePage() {
+  const forumId = useForumFilter()?.forumId ?? ''
   const [searchCode, setSearchCode] = useState('')
   const [searchRecordUser, setSearchRecordUser] = useState('')
   const [rebateCodes, setRebateCodes] = useState<RebateCode[]>(INIT_REBATE_CODES)
@@ -74,12 +70,17 @@ export default function RebatePage() {
   const [messageApi, contextHolder] = message.useMessage()
 
   const filteredCodes = rebateCodes.filter((c) => {
+    if (forumId && c.forumId !== forumId) return false
     if (!searchCode.trim()) return true
     const q = searchCode.trim().toLowerCase()
     return c.code.toLowerCase().includes(q) || c.creatorNickname.toLowerCase().includes(q) || c.forumName.toLowerCase().includes(q)
   })
 
   const filteredRecords = rebateRecords.filter((r) => {
+    if (forumId) {
+      const code = rebateCodes.find((c) => c.code === r.code)
+      if (!code || code.forumId !== forumId) return false
+    }
     if (!searchRecordUser.trim()) return true
     const q = searchRecordUser.trim().toLowerCase()
     return (
@@ -97,7 +98,7 @@ export default function RebatePage() {
   const handleCreate = () => {
     form.validateFields().then((values) => {
       const creator = MOCK_CREATORS.find((c) => c.id === values.creatorId)
-      const forum = MOCK_FORUMS.find((f) => f.id === values.forumId)
+      const forum = FORUM_OPTIONS.find((f) => f.id === values.forumId)
       if (!creator || !forum) return
       const nextId = String(Math.max(...rebateCodes.map((c) => parseInt(c.id, 10) || 0), 0) + 1)
       const code = `CREATOR${creator.id.padStart(3, '0')}`
@@ -243,7 +244,7 @@ export default function RebatePage() {
             label="关联论坛"
             rules={[{ required: true, message: '请选择关联论坛' }]}
           >
-            <Select placeholder="请选择关联论坛" options={MOCK_FORUMS.map((f) => ({ label: f.name, value: f.id }))} />
+            <Select placeholder="请选择关联论坛" options={FORUM_OPTIONS.map((f) => ({ label: f.name, value: f.id }))} />
           </Form.Item>
           <Form.Item
             name="rate"

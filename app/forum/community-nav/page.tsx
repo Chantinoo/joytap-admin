@@ -15,6 +15,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Button, Input, Modal, Select, Space, Switch, Table, Tag, message } from 'antd'
 import { GripVertical, Plus } from 'lucide-react'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
+import ForumSelectRequired from '../../components/ForumSelectRequired'
 
 // ── 拖拽排序 ─────────────────────────────────────────────────────────────────
 interface RowContextValue {
@@ -444,6 +445,7 @@ export default function CommunityNavPage() {
       {contextHolder}
       <PageBreadcrumb items={[{ label: '论坛管理', href: '/forum/list' }, { label: '社区导航' }]} />
 
+      <ForumSelectRequired>
       <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <div
           style={{
@@ -613,6 +615,7 @@ export default function CommunityNavPage() {
           </div>
         </div>
       </Modal>
+      </ForumSelectRequired>
     </div>
   )
 }

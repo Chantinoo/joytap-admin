@@ -5,16 +5,8 @@ import { Table, Input, Select, Button, Tag, message, Modal, Form } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { Copy, RefreshCw, Settings, UserPlus, UserCircle } from 'lucide-react'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
-
-// Mock 论坛列表
-const MOCK_FORUMS = [
-  { id: 'rox', name: '仙境传说3' },
-  { id: 'yjyj', name: '永劫无间' },
-  { id: 'ys', name: '原神' },
-  { id: 'wzry', name: '王者荣耀' },
-  { id: 'hpjy', name: '和平精英' },
-  { id: 'bhxq', name: '崩坏：星穹铁道' },
-]
+import { useForumFilter } from '../../context/ForumFilterContext'
+import { FORUM_OPTIONS } from '../../data/forums'
 
 // 认证类型选项
 const CERT_TYPE_OPTIONS = [
@@ -60,7 +52,7 @@ const MOCK_CERTIFIED = [
 ]
 
 export default function CertifiedAccountsPage() {
-  const [forumId, setForumId] = useState<string | undefined>(undefined)
+  const forumId = useForumFilter()?.forumId ?? ''
   const [userId, setUserId] = useState('')
   const [certModalOpen, setCertModalOpen] = useState(false)
   const [form] = Form.useForm()
@@ -71,7 +63,7 @@ export default function CertifiedAccountsPage() {
   const handleCertConfirm = () => {
     form.validateFields().then((values) => {
       const msg = values.certType === 'creator'
-        ? `已提交认证：用户 ${values.certUserId}，类型 创作者，论坛 ${MOCK_FORUMS.find((f) => f.id === values.certForumId)?.name ?? values.certForumId}`
+        ? `已提交认证：用户 ${values.certUserId}，类型 创作者，论坛 ${FORUM_OPTIONS.find((f) => f.id === values.certForumId)?.name ?? values.certForumId}`
         : `已提交认证：用户 ${values.certUserId}，类型 官方`
       messageApi.success(msg)
       setCertModalOpen(false)
@@ -81,14 +73,13 @@ export default function CertifiedAccountsPage() {
 
   const handleCertTypeChange = (val: string) => {
     if (val === 'creator') {
-      form.setFieldValue('certForumId', forumId ?? MOCK_FORUMS[0]?.id)
+      form.setFieldValue('certForumId', forumId || FORUM_OPTIONS[0]?.id)
     } else {
       form.setFieldValue('certForumId', undefined)
     }
   }
 
   const handleReset = () => {
-    setForumId(undefined)
     setUserId('')
   }
 
@@ -206,15 +197,6 @@ export default function CertifiedAccountsPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, color: '#374151', flexShrink: 0 }}>论坛：</span>
-          <Select
-            value={forumId}
-            onChange={setForumId}
-            style={{ width: 180 }}
-            placeholder="请选择论坛"
-            allowClear
-            options={MOCK_FORUMS.map((f) => ({ label: f.name, value: f.id }))}
-          />
           <span style={{ fontSize: 13, color: '#374151', flexShrink: 0 }}>用户ID：</span>
           <Input
             placeholder="请输入用户ID"
@@ -288,7 +270,7 @@ export default function CertifiedAccountsPage() {
             >
               <Select
                 placeholder="请选择关联论坛"
-                options={MOCK_FORUMS.map((f) => ({ label: f.name, value: f.id }))}
+                options={FORUM_OPTIONS.map((f) => ({ label: f.name, value: f.id }))}
               />
             </Form.Item>
           )}

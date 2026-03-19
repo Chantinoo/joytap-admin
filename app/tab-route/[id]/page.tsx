@@ -45,6 +45,7 @@ import { useCollectionPages } from '../../context/CollectionPagesContext'
 import { useLeaveGuard } from '../../context/LeaveGuardContext'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
+import ForumSelectRequired from '../../components/ForumSelectRequired'
 
 function formatViews(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}w`
@@ -768,6 +769,7 @@ export default function TabEditPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {contextHolder}
 
+      <ForumSelectRequired>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1019,6 +1021,7 @@ export default function TabEditPage() {
           ))}
         </div>
       </Modal>
+      </ForumSelectRequired>
     </div>
   )
 }

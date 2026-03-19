@@ -5,8 +5,8 @@ import UnderDevelopment from '../../components/UnderDevelopment'
 export default function ForumAnnouncementPage() {
   return (
     <UnderDevelopment
-      title="公告"
-      breadcrumbItems={[{ label: '论坛管理' }, { label: '公告' }]}
+      title="置顶"
+      breadcrumbItems={[{ label: '论坛资源', href: '/forum/list' }, { label: '置顶' }]}
     />
   )
 }

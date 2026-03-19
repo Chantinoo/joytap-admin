@@ -5,22 +5,25 @@ import { Table, Input } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { Search, Eye } from 'lucide-react'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
+import { useForumFilter } from '../../context/ForumFilterContext'
 
 // Mock 数据（同一创作者可关联多个游戏，每条记录对应一个游戏）
 const MOCK_CREATORS = [
-  { id: '1', userId: '1', nickname: '攻略达人小明', gameName: '仙境传说3', certified: true, fans: 1250, manuscripts: 42, rebateAmount: 128.5, createdAt: '2025-01-15' },
-  { id: '1-yjyj', userId: '1', nickname: '攻略达人小明', gameName: '永劫无间', certified: true, fans: 1250, manuscripts: 42, rebateAmount: 56.0, createdAt: '2025-02-10' },
-  { id: '2', userId: '2', nickname: '游戏解说阿杰', gameName: '仙境传说3', certified: true, fans: 890, manuscripts: 28, rebateAmount: 56.0, createdAt: '2025-02-03' },
-  { id: '3', userId: '3', nickname: '新手向攻略', gameName: '仙境传说3', certified: false, fans: 320, manuscripts: 15, rebateAmount: 0, createdAt: '2025-03-01' },
-  { id: '4', userId: '4', nickname: 'ROX 攻略组', gameName: '仙境传说3', certified: true, fans: 2100, manuscripts: 68, rebateAmount: 320.8, createdAt: '2024-11-20' },
-  { id: '5', userId: '5', nickname: '休闲玩家', gameName: '仙境传说3', certified: false, fans: 56, manuscripts: 3, rebateAmount: 0, createdAt: '2025-03-10' },
+  { id: '1', userId: '1', nickname: '攻略达人小明', forumId: 'rox', gameName: '仙境传说3', certified: true, fans: 1250, manuscripts: 42, rebateAmount: 128.5, createdAt: '2025-01-15' },
+  { id: '1-yjyj', userId: '1', nickname: '攻略达人小明', forumId: 'yjyj', gameName: '永劫无间', certified: true, fans: 1250, manuscripts: 42, rebateAmount: 56.0, createdAt: '2025-02-10' },
+  { id: '2', userId: '2', nickname: '游戏解说阿杰', forumId: 'rox', gameName: '仙境传说3', certified: true, fans: 890, manuscripts: 28, rebateAmount: 56.0, createdAt: '2025-02-03' },
+  { id: '3', userId: '3', nickname: '新手向攻略', forumId: 'rox', gameName: '仙境传说3', certified: false, fans: 320, manuscripts: 15, rebateAmount: 0, createdAt: '2025-03-01' },
+  { id: '4', userId: '4', nickname: 'ROX 攻略组', forumId: 'rox', gameName: '仙境传说3', certified: true, fans: 2100, manuscripts: 68, rebateAmount: 320.8, createdAt: '2024-11-20' },
+  { id: '5', userId: '5', nickname: '休闲玩家', forumId: 'rox', gameName: '仙境传说3', certified: false, fans: 56, manuscripts: 3, rebateAmount: 0, createdAt: '2025-03-10' },
 ]
 
 export default function CreatorListPage() {
+  const forumId = useForumFilter()?.forumId ?? ''
   const [search, setSearch] = useState('')
   const [creators] = useState(MOCK_CREATORS)
 
   const filtered = creators.filter((c) => {
+    if (forumId && c.forumId !== forumId) return false
     if (!search.trim()) return true
     const q = search.trim().toLowerCase()
     return c.nickname.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)

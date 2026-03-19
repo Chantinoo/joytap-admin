@@ -8,7 +8,7 @@ import {
 import { Plus, Edit2, Trash2, ExternalLink, Search, Languages } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PageBreadcrumb from '../components/PageBreadcrumb'
-import GameFilter from '../components/GameFilter'
+import ForumSelectRequired from '../components/ForumSelectRequired'
 import FieldI18nModal, { type I18nLabels, LANGUAGES } from './components/FieldI18nModal'
 import ListStylePreview, { LIST_STYLES, type ListStyle } from './components/ListStylePreview'
 import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type Detail1Config, type Detail2Config, type RichTableSection } from './components/DetailStylePreview'
@@ -385,8 +385,7 @@ function WikiManageInner() {
       {contextHolder}
       <PageBreadcrumb items={[{ label: 'Wiki 管理' }]} />
 
-      <GameFilter />
-
+      <ForumSelectRequired>
       {/* 主 Tab */}
       <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <Tabs
@@ -1032,6 +1031,7 @@ function WikiManageInner() {
           onCancel={() => setI18nModalOpen(false)}
         />
       )}
+      </ForumSelectRequired>
     </div>
   )
 }

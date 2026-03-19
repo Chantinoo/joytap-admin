@@ -7,6 +7,7 @@ import { Eye, Calendar, User, Pencil, Plus, Save, Trash2, Link as LinkIcon, Refr
 import { Article } from '../../types'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
+import ForumSelectRequired from '../../components/ForumSelectRequired'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
 import { useLeaveGuard } from '../../context/LeaveGuardContext'
 
@@ -91,9 +92,6 @@ export default function CollectionPageDetail() {
   const [fetching, setFetching] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  if (!collectionPage) {
-    return <div style={{ padding: 48, textAlign: 'center', color: '#9CA3AF' }}>找不到该集合页</div>
-  }
 
   // 当前预览封面
   const previewCover =
@@ -211,10 +209,15 @@ export default function CollectionPageDetail() {
         items={[
           { label: '论坛管理', href: '/forum/list' },
           { label: '集合页管理', href: '/collection-pages' },
-          { label: collectionPage.name },
+          { label: collectionPage?.name ?? '集合页' },
         ]}
       />
 
+      <ForumSelectRequired>
+      {!collectionPage ? (
+        <div style={{ padding: 48, textAlign: 'center', color: '#9CA3AF' }}>找不到该集合页</div>
+      ) : (
+        <>
       {/* 页头：标题 + 保存 + 新增按钮 */}
       <div style={{ background: '#fff', borderRadius: 6, padding: '14px 20px', border: '1px solid #E5E7EB' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -547,6 +550,9 @@ export default function CollectionPageDetail() {
           </div>
         </div>
       </Modal>
+        </>
+      )}
+      </ForumSelectRequired>
     </div>
   )
 }
