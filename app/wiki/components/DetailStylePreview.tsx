@@ -97,8 +97,8 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
   // ── 详情样式 1 ──────────────────────────────────────────
   if (style === 'detail-1' && detail1Config) {
     const mainFields = fields.filter(f => detail1Config.mainFieldKeys.includes(f.key))
-    const imageField = mainFields.find(f => f.type === 'image')
-    const textFields = mainFields.filter(f => f.type !== 'image')
+    const imageField = mainFields.find(f => f.type === 'single-image' || f.type === 'image-group')
+    const textFields = mainFields.filter(f => f.type !== 'single-image' && f.type !== 'image-group')
     const sideFields = fields.filter(f => detail1Config.sideFieldKeys.includes(f.key))
 
     return (
@@ -174,7 +174,7 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
                     }}>
                       {sectionFields.map(f => (
                         <div key={f.key} style={{ padding: '8px 12px', fontSize: 12, color: '#374151' }}>
-                          {f.type === 'image' ? (
+                          {f.type === 'single-image' || f.type === 'image-group' ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <span style={{ fontSize: 16 }}>📦</span>
                               <span>神秘箱子</span>
@@ -237,8 +237,8 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
   // ── 详情样式 2 ──────────────────────────────────────────
   if (style === 'detail-2' && detail2Config) {
     const mainFields = fields.filter(f => detail2Config.mainFieldKeys.includes(f.key))
-    const imageField = mainFields.find(f => f.type === 'image')
-    const textFields = mainFields.filter(f => f.type !== 'image')
+    const imageField = mainFields.find(f => f.type === 'single-image' || f.type === 'image-group')
+    const textFields = mainFields.filter(f => f.type !== 'single-image' && f.type !== 'image-group')
     const sideFields = fields.filter(f => detail2Config.sideFieldKeys.includes(f.key))
 
     const colFields = textFields.slice(0, 8)

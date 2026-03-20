@@ -25,9 +25,9 @@ export const LIST_STYLES: StyleConfig[] = [
   {
     id: 'card-list',
     label: '横向卡片列表',
-    description: '图片必选 + 1~4 个文本/数字字段，适合道具、怪物等',
+    description: '图片必选 + 1~4 个文本/数值字段，适合道具、怪物等',
     maxFields: 5,
-    allowedTypes: ['image', 'text', 'number'],
+    allowedTypes: ['single-image', 'text', 'number', 'select'],
     icon: '📄',
     requireImage: true,
     minTextFields: 1,
@@ -36,9 +36,9 @@ export const LIST_STYLES: StyleConfig[] = [
   {
     id: 'card-grid',
     label: '大图卡片宫格',
-    description: '图片必选 + 最多 1 个文本/数字字段，适合卡片、宠物等',
+    description: '图片必选 + 最多 1 个文本/数值字段，适合卡片、宠物等',
     maxFields: 2,
-    allowedTypes: ['image', 'text', 'number'],
+    allowedTypes: ['single-image', 'text', 'number'],
     icon: '🃏',
     requireImage: true,
     maxTextFields: 1,
@@ -48,15 +48,15 @@ export const LIST_STYLES: StyleConfig[] = [
     label: '富媒体表格',
     description: '图文混排表格，单元格支持多行内容，适合配方、套装等复杂数据',
     maxFields: 8,
-    allowedTypes: ['text', 'number', 'image', 'tag', 'rich-table'],
+    allowedTypes: ['text', 'rich-text', 'number', 'single-image', 'image-group', 'select', 'switch', 'card-ref', 'card-ref-multi'],
     icon: '📋',
   },
   {
     id: 'image-card',
     label: '图片卡片',
-    description: '图片必选 + 最多 2 个文本/数字字段，适合地图、场景等以图为主的内容',
+    description: '图片必选 + 最多 2 个文本/数值字段，适合地图、场景等以图为主的内容',
     maxFields: 3,
-    allowedTypes: ['image', 'text', 'number'],
+    allowedTypes: ['single-image', 'text', 'number'],
     icon: '🗺️',
     requireImage: true,
     maxTextFields: 2,
@@ -125,7 +125,7 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
   // ── 1. 横向卡片列表（card-list）────────────────────────────
   // 一行四个卡片，图片在左，右侧每个字段独占一行
   if (style === 'card-list') {
-    const imageField = displayFields.find(f => f.type === 'image')
+    const imageField = displayFields.find(f => f.type === 'single-image' || f.type === 'image-group')
     const textFields = displayFields.filter(f => f.type !== 'image').slice(0, 4)
     // 第一个文本字段作为主标题，其余作为属性行
     const [titleField, ...attrFields] = textFields
@@ -191,7 +191,7 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
   // ── 2. 大图卡片宫格（card-grid）────────────────────────────
   // 参考截图2：全图占满卡片主体，底部名称
   if (style === 'card-grid') {
-    const iconField = displayFields.find(f => f.type === 'image')
+    const iconField = displayFields.find(f => f.type === 'single-image' || f.type === 'image-group')
     const nameField = displayFields.find(f => f.key === 'name')
 
     return (
@@ -274,7 +274,7 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
                 overflow: f.key === 'description' ? 'visible' : 'hidden',
                 textOverflow: f.key === 'description' ? 'unset' : 'ellipsis',
               }}>
-                {f.type === 'rich-table' ? (
+                {f.type === 'card-ref' || f.type === 'card-ref-multi' ? (
                   (() => {
                     const cell = row[f.key] as RichTableCell | undefined
                     if (!cell || cell.items.length === 0) return <span style={{ fontSize: 12, color: '#9CA3AF' }}>—</span>
@@ -289,11 +289,11 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
                       </div>
                     )
                   })()
-                ) : f.type === 'image' ? (
+                ) : f.type === 'single-image' || f.type === 'image-group' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 18 }}>{row[f.key] as string}</span>
                   </div>
-                ) : f.type === 'tag' || f.type === 'select' ? (
+                ) : f.type === 'select' || f.type === 'switch' ? (
                   <Tag style={{ fontSize: 11, padding: '0 4px' }}>{row[f.key] as string}</Tag>
                 ) : (
                   <span style={{ fontSize: 12 }}>{String(row[f.key] ?? '—')}</span>
@@ -309,7 +309,7 @@ export default function ListStylePreview({ style, fields, selectedFieldKeys }: P
   // ── 4. 图片卡片（image-card）───────────────────────────────
   // 图片必选（主体），下方最多 2 个文本/数字字段
   if (style === 'image-card') {
-    const imageField = displayFields.find(f => f.type === 'image')
+    const imageField = displayFields.find(f => f.type === 'single-image' || f.type === 'image-group')
     const textFields = displayFields.filter(f => f.type !== 'image').slice(0, 2)
     const [titleField, subField] = textFields
 
