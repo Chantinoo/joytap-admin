@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Table, Button, Switch, Popconfirm, message, Modal, Form, Input } from 'antd'
-import { ExternalLink, Plus, Search } from 'lucide-react'
+import { Table, Button, Switch, Popconfirm, message, Modal, Form, Input, Segmented } from 'antd'
+import { ExternalLink, Languages, Plus, Search } from 'lucide-react'
 import PageBreadcrumb from '../../../components/PageBreadcrumb'
 import {
   getRoCommunityOrigin,
@@ -45,6 +45,7 @@ export interface WikiDataRow {
   key: string
   id: number
   name: string
+  nameEn?: string
   hidden: boolean
 }
 
@@ -57,7 +58,7 @@ function buildLocalRows(wikiKey: string, wikiLabel: string): WikiDataRow[] {
   }))
 }
 
-type ApiAdminItem = { id: number; name: string; hidden: boolean }
+type ApiAdminItem = { id: number; name: string; hidden: boolean; nameEn?: string }
 
 /** 拉取道具 Wiki 列表；失败或空列表时回落为本地 MOCK */
 async function pullItemsRowsFromApi(
@@ -76,6 +77,7 @@ async function pullItemsRowsFromApi(
           id: it.id,
           name: it.name,
           hidden: !!it.hidden,
+          ...(it.nameEn ? { nameEn: it.nameEn } : {}),
         })),
       }
     }
@@ -156,22 +158,28 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
 
   const [addOpen, setAddOpen] = useState(false)
   const [addSubmitting, setAddSubmitting] = useState(false)
-  const [addForm] = Form.useForm<{ name: string }>()
+  const [nameLangTab, setNameLangTab] = useState<'zh' | 'en'>('zh')
+  const [addForm] = Form.useForm<{ nameZh: string; nameEn: string }>()
 
   const submitAdd = async () => {
     const values = await addForm.validateFields()
-    const name = values.name?.trim()
-    if (!name) {
-      messageApi.error('请输入名称')
+    const zh = (values.nameZh ?? '').trim()
+    const en = (values.nameEn ?? '').trim()
+    if (!zh && !en) {
+      messageApi.error('请至少填写中文或英文名称')
       return
     }
+    const primary = zh || en
     if (isItemsWiki) {
       setAddSubmitting(true)
       try {
         const res = await fetch(`${communityOrigin}/api/wiki/items`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({
+            name: primary,
+            ...(zh && en ? { nameEn: en } : {}),
+          }),
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
@@ -181,6 +189,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
         messageApi.success('已新增并同步到前台')
         setAddOpen(false)
         addForm.resetFields()
+        setNameLangTab('zh')
         await syncFromCommunity()
       } catch {
         messageApi.error('无法连接前台，请确认 ro-community 已启动')
@@ -190,13 +199,22 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
       return
     }
     const nextId = Math.max(0, ...rows.map((r) => r.id)) + 1
+    const label =
+      zh && en ? `${wikiLabel} · ${zh} / ${en}` : `${wikiLabel} · ${primary}`
     setRows((prev) => [
       ...prev,
-      { key: `${wikiKey}-${nextId}`, id: nextId, name: `${wikiLabel} · ${name}`, hidden: false },
+      {
+        key: `${wikiKey}-${nextId}`,
+        id: nextId,
+        name: label,
+        ...(en ? { nameEn: en } : {}),
+        hidden: false,
+      },
     ])
     messageApi.success('已新增（仅本页 MOCK，非道具 Wiki 不同步前台）')
     setAddOpen(false)
     addForm.resetFields()
+    setNameLangTab('zh')
   }
 
   const patchHidden = async (id: number, hidden: boolean) => {
@@ -236,7 +254,8 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     if (!q) return rows
     return rows.filter((r) => {
       if (String(r.id).includes(q)) return true
-      return r.name.toLowerCase().includes(q)
+      if (r.name.toLowerCase().includes(q)) return true
+      return (r.nameEn ?? '').toLowerCase().includes(q)
     })
   }, [rows, searchKeyword])
 
@@ -247,6 +266,17 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      render: (text: string, record: WikiDataRow) =>
+        record.nameEn ? (
+          <span>
+            <span>{text}</span>
+            <span style={{ display: 'block', fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+              {record.nameEn}
+            </span>
+          </span>
+        ) : (
+          text
+        ),
     },
     ...(isItemsWiki
       ? [
@@ -365,7 +395,10 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
           <Button
             type="primary"
             icon={<Plus size={14} />}
-            onClick={() => setAddOpen(true)}
+            onClick={() => {
+              setNameLangTab('zh')
+              setAddOpen(true)
+            }}
             style={{ flexShrink: 0, marginLeft: 'auto' }}
           >
             新增
@@ -391,20 +424,65 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
         onCancel={() => {
           setAddOpen(false)
           addForm.resetFields()
+          setNameLangTab('zh')
         }}
         okText="确定"
         cancelText="取消"
         confirmLoading={addSubmitting}
         destroyOnHidden
       >
-        <Form form={addForm} layout="vertical" style={{ marginTop: 12 }}>
+        <Form
+          form={addForm}
+          layout="vertical"
+          style={{ marginTop: 12 }}
+          initialValues={{ nameZh: '', nameEn: '' }}
+        >
           <Form.Item
-            name="name"
-            label="名称"
-            rules={[{ required: true, message: '请输入名称' }]}
+            required
+            style={{ marginBottom: 8 }}
+            label={
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  fontWeight: 500,
+                }}
+              >
+                名称
+                <Languages size={16} style={{ color: '#1677ff' }} aria-hidden />
+                <Segmented<'zh' | 'en'>
+                  size="small"
+                  value={nameLangTab}
+                  onChange={(v) => setNameLangTab(v)}
+                  options={[
+                    { label: 'zh', value: 'zh' },
+                    { label: 'en', value: 'en' },
+                  ]}
+                />
+              </span>
+            }
           >
-            <Input placeholder={isItemsWiki ? '例如：红药水' : '条目显示名称'} allowClear />
+            <div>
+              <div style={{ display: nameLangTab === 'zh' ? 'block' : 'none' }}>
+                <Form.Item name="nameZh" noStyle>
+                  <Input
+                    allowClear
+                    placeholder={isItemsWiki ? '例如：红药水' : '中文或主显示名称'}
+                  />
+                </Form.Item>
+              </div>
+              <div style={{ display: nameLangTab === 'en' ? 'block' : 'none' }}>
+                <Form.Item name="nameEn" noStyle>
+                  <Input allowClear placeholder="e.g. Red Potion" />
+                </Form.Item>
+              </div>
+            </div>
           </Form.Item>
+          <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.5 }}>
+            至少填写一种语言。道具同步前台：主名称优先中文；若同时填写中英文，英文将单独保存并在前台副标题展示。
+          </div>
         </Form>
       </Modal>
     </div>
