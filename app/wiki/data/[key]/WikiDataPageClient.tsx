@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Table, Button, Switch, Popconfirm, message, Modal, Form, Input } from 'antd'
-import { ExternalLink, Plus } from 'lucide-react'
+import { ExternalLink, Plus, Search } from 'lucide-react'
 import PageBreadcrumb from '../../../components/PageBreadcrumb'
 import {
   getRoCommunityOrigin,
@@ -116,6 +116,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
   const [addOpen, setAddOpen] = useState(false)
   const [addSubmitting, setAddSubmitting] = useState(false)
   const [addForm] = Form.useForm<{ name: string }>()
+  const [searchKeyword, setSearchKeyword] = useState('')
 
   const submitAdd = async () => {
     const values = await addForm.validateFields()
@@ -190,7 +191,14 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     }
   }
 
-  const dataSource = useMemo(() => rows, [rows])
+  const dataSource = useMemo(() => {
+    const q = searchKeyword.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((r) => {
+      if (String(r.id).includes(q)) return true
+      return r.name.toLowerCase().includes(q)
+    })
+  }, [rows, searchKeyword])
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
@@ -301,12 +309,25 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
             borderBottom: '1px solid #E5E7EB',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 12,
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>{wikiLabel}</div>
-          <Button type="primary" icon={<Plus size={14} />} onClick={() => setAddOpen(true)}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#111827', flexShrink: 0 }}>{wikiLabel}</div>
+          <Input
+            allowClear
+            placeholder={`搜索${wikiLabel}名称或 ID`}
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            prefix={<Search size={16} style={{ color: '#9ca3af' }} />}
+            style={{ flex: '1 1 220px', maxWidth: 420, minWidth: 180 }}
+          />
+          <Button
+            type="primary"
+            icon={<Plus size={14} />}
+            onClick={() => setAddOpen(true)}
+            style={{ flexShrink: 0, marginLeft: 'auto' }}
+          >
             新增
           </Button>
         </div>
