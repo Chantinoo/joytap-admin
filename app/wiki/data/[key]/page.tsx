@@ -6,5 +6,5 @@ export default async function WikiDataPage({
   params: Promise<{ key: string }>
 }) {
   const { key } = await params
-  return <WikiDataPageClient wikiKey={key} />
+  return <WikiDataPageClient key={key} wikiKey={key} />
 }

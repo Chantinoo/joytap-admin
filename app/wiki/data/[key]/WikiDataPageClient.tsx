@@ -59,6 +59,32 @@ function buildLocalRows(wikiKey: string, wikiLabel: string): WikiDataRow[] {
 
 type ApiAdminItem = { id: number; name: string; hidden: boolean }
 
+/** 拉取道具 Wiki 列表；失败或空列表时回落为本地 MOCK */
+async function pullItemsRowsFromApi(
+  origin: string,
+  wikiLabel: string,
+): Promise<{ rows: WikiDataRow[]; warn?: 'empty' | 'error' }> {
+  try {
+    const res = await fetch(`${origin}/api/wiki/items?admin=1`, { cache: 'no-store' })
+    if (!res.ok) throw new Error(String(res.status))
+    const data = await res.json()
+    const list = (data.items ?? []) as ApiAdminItem[]
+    if (Array.isArray(list) && list.length > 0) {
+      return {
+        rows: list.map((it) => ({
+          key: `items-${it.id}`,
+          id: it.id,
+          name: it.name,
+          hidden: !!it.hidden,
+        })),
+      }
+    }
+    return { rows: buildLocalRows('items', wikiLabel), warn: 'empty' }
+  } catch {
+    return { rows: buildLocalRows('items', wikiLabel), warn: 'error' }
+  }
+}
+
 export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
   const [messageApi, contextHolder] = message.useMessage()
   const wikiLabel = WIKI_META[wikiKey]?.label ?? wikiKey
@@ -68,6 +94,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
   const [loading, setLoading] = useState(isItemsWiki)
   /** 实际用于 API 与「前台查看」的前台基址（环境变量或 localStorage 覆盖） */
   const [communityOrigin, setCommunityOrigin] = useState(getRoCommunityOrigin)
+  const [searchKeyword, setSearchKeyword] = useState('')
 
   useEffect(() => {
     try {
@@ -79,44 +106,57 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     }
   }, [])
 
+  /** 仅道具 Wiki：新增后静默刷新列表 */
   const syncFromCommunity = useCallback(async () => {
     if (!isItemsWiki) return
     setLoading(true)
-    const origin = communityOrigin
     try {
-      const res = await fetch(`${origin}/api/wiki/items?admin=1`, { cache: 'no-store' })
-      if (!res.ok) throw new Error(String(res.status))
-      const data = await res.json()
-      const list = (data.items ?? []) as ApiAdminItem[]
-      if (Array.isArray(list) && list.length > 0) {
-        setRows(
-          list.map((it) => ({
-            key: `items-${it.id}`,
-            id: it.id,
-            name: it.name,
-            hidden: !!it.hidden,
-          })),
-        )
-      } else {
-        setRows(buildLocalRows(wikiKey, wikiLabel))
-        messageApi.warning('前台暂无道具数据，已使用本地 MOCK')
-      }
-    } catch {
-      setRows(buildLocalRows(wikiKey, wikiLabel))
-      messageApi.warning(`无法连接前台 API（${origin}），已使用本地 MOCK。请配置 NEXT_PUBLIC_RO_COMMUNITY_URL 并启动 ro-community。`)
+      const { rows: next } = await pullItemsRowsFromApi(communityOrigin, wikiLabel)
+      setRows(next)
     } finally {
       setLoading(false)
     }
-  }, [isItemsWiki, wikiKey, wikiLabel, messageApi, communityOrigin])
+  }, [isItemsWiki, communityOrigin, wikiLabel])
 
+  /**
+   * 切换 Wiki 分类或前台地址时同步数据。
+   * 非道具：本地 MOCK（不走 API）；道具：拉前台，并在卸载/切换时忽略过期请求，避免盖住其他页。
+   */
   useEffect(() => {
-    syncFromCommunity()
-  }, [syncFromCommunity])
+    setSearchKeyword('')
+
+    if (!isItemsWiki) {
+      setLoading(false)
+      setRows(buildLocalRows(wikiKey, wikiLabel))
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      try {
+        const { rows: next, warn } = await pullItemsRowsFromApi(communityOrigin, wikiLabel)
+        if (cancelled) return
+        setRows(next)
+        if (warn === 'empty') messageApi.warning('前台暂无道具数据，已使用本地 MOCK')
+        if (warn === 'error') {
+          messageApi.warning(
+            `无法连接前台 API（${communityOrigin}），已使用本地 MOCK。请配置 NEXT_PUBLIC_RO_COMMUNITY_URL 并启动 ro-community。`,
+          )
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [wikiKey, wikiLabel, isItemsWiki, communityOrigin, messageApi])
 
   const [addOpen, setAddOpen] = useState(false)
   const [addSubmitting, setAddSubmitting] = useState(false)
   const [addForm] = Form.useForm<{ name: string }>()
-  const [searchKeyword, setSearchKeyword] = useState('')
 
   const submitAdd = async () => {
     const values = await addForm.validateFields()
