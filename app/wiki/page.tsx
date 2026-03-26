@@ -5,7 +5,7 @@ import {
   Table, Button, Tag, Space, Input, Select, Modal, Form, Switch,
   Tooltip, Popconfirm, message,
 } from 'antd'
-import { Plus, Edit2, Trash2, ExternalLink, Search } from 'lucide-react'
+import { Plus, Edit2, Trash2, ExternalLink, Search, Database } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
@@ -117,13 +117,19 @@ function WikiManageInner() {
       render: (v: number) => <Tag color="blue">{v} 个</Tag>,
     },
     {
-      title: '操作', key: 'action', width: 180,
+      title: '操作', key: 'action', width: 260,
       render: (_: unknown, record: WikiNav) => (
-        <Space size={4}>
+        <Space size={4} wrap>
           <Tooltip title="进入配置">
             <Button size="small" type="link" icon={<ExternalLink size={13} />}
               onClick={() => router.push(`/wiki/config/${record.key}`)}>
               配置
+            </Button>
+          </Tooltip>
+          <Tooltip title="管理该 Wiki 下的卡片数据">
+            <Button size="small" type="link" icon={<Database size={13} />}
+              onClick={() => router.push(`/wiki/data/${record.key}`)}>
+              数据
             </Button>
           </Tooltip>
           <Button size="small" type="text" icon={<Edit2 size={13} />} onClick={() => openEditNavModal(record)}>编辑</Button>
@@ -178,7 +184,7 @@ function WikiManageInner() {
             {/* 提示 */}
             <div style={{ padding: '12px 20px 0' }}>
               <div style={{ padding: '10px 14px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 6, fontSize: 13, color: '#92400E' }}>
-                💡 点击「配置」进入该 Wiki 分类的字段与数据管理。
+                💡 点击「配置」管理字段与展示样式；点击「数据」进入该 Wiki 的卡片数据列表（示例 MOCK）。
               </div>
             </div>
 
