@@ -193,7 +193,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
   const dataSource = useMemo(() => rows, [rows])
 
   const columns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 72 },
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
     {
       title: '名称',
       dataIndex: 'name',
@@ -205,7 +205,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
           {
             title: '前台查看',
             key: 'front',
-            width: 100,
+            width: 120,
             render: (_: unknown, record: WikiDataRow) => (
               <Button
                 size="small"
@@ -228,7 +228,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     {
       title: '隐藏',
       key: 'hidden',
-      width: 72,
+      width: 90,
       align: 'center' as const,
       render: (_: unknown, record: WikiDataRow) => (
         <Switch
@@ -252,7 +252,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     {
       title: '操作',
       key: 'action',
-      width: 88,
+      width: 100,
       render: (_: unknown, record: WikiDataRow) => (
         <Popconfirm
           title="确认删除该卡片？"
