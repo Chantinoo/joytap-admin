@@ -192,27 +192,20 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
 
   const dataSource = useMemo(() => rows, [rows])
 
-  /** 全部用百分比且合计 100%，避免与 px 混用时节宽计算异常、中间留出大块空白 */
-  const colW = isItemsWiki
-    ? { id: '7%', name: '40%', front: '18%', hidden: '17%', action: '18%' }
-    : { id: '9%', name: '58%', hidden: '16%', action: '17%' }
-
   const columns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: colW.id, align: 'left' as const },
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 72 },
     {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
-      width: colW.name,
     },
     ...(isItemsWiki
       ? [
           {
             title: '前台查看',
             key: 'front',
-            width: colW.front,
-            align: 'left' as const,
+            width: 100,
             render: (_: unknown, record: WikiDataRow) => (
               <Button
                 size="small"
@@ -235,7 +228,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     {
       title: '隐藏',
       key: 'hidden',
-      width: colW.hidden,
+      width: 72,
       align: 'center' as const,
       render: (_: unknown, record: WikiDataRow) => (
         <Switch
@@ -259,8 +252,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     {
       title: '操作',
       key: 'action',
-      width: colW.action,
-      align: 'right' as const,
+      width: 88,
       render: (_: unknown, record: WikiDataRow) => (
         <Popconfirm
           title="确认删除该卡片？"
@@ -321,10 +313,8 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
 
         <div style={{ padding: '16px 20px' }}>
           <Table<WikiDataRow>
-            className="wiki-data-page-table"
             rowKey="key"
             size="small"
-            tableLayout="fixed"
             columns={columns}
             dataSource={dataSource}
             pagination={false}

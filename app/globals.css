@@ -25,21 +25,3 @@ body {
 .download-button-table .ant-table-thead > tr > th:last-child {
   padding-right: 24px;
 }
-
-/* Wiki 数据页表格：内层 table 撑满宽度，列百分比才生效；统一单元格左右留白 */
-.wiki-data-page-table.ant-table-wrapper .ant-table,
-.wiki-data-page-table.ant-table-wrapper .ant-table table {
-  width: 100%;
-}
-.wiki-data-page-table .ant-table-thead > tr > th,
-.wiki-data-page-table .ant-table-tbody > tr > td {
-  padding: 10px 12px;
-}
-.wiki-data-page-table .ant-table-thead > tr > th:first-child,
-.wiki-data-page-table .ant-table-tbody > tr > td:first-child {
-  padding-left: 16px;
-}
-.wiki-data-page-table .ant-table-thead > tr > th:last-child,
-.wiki-data-page-table .ant-table-tbody > tr > td:last-child {
-  padding-right: 16px;
-}
