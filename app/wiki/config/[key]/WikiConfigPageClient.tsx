@@ -59,7 +59,9 @@ interface WikiField {
   filterable: boolean
   required: boolean
   order: number
-  selectOptions?: WikiSelectOption[]  // 仅 type === 'select' 时使用
+  selectOptions?: WikiSelectOption[] // 仅 type === 'select' 时使用
+  /** 关联卡片 / 关联卡片（可倍数）：指向的 Wiki 分类 key */
+  cardRefWikiKey?: string
 }
 
 const fieldTypeColors: Record<FieldType, string> = {
@@ -102,6 +104,25 @@ const WIKI_META: Record<string, { label: string }> = {
   maps:     { label: '地图' },
 }
 
+/** 与 Wiki 管理列表顺序一致，供「关联关系」下拉使用 */
+const WIKI_CATEGORY_KEYS = [
+  'items',
+  'monsters',
+  'cards',
+  'pets',
+  'boxes',
+  'arrows',
+  'sets',
+  'skills',
+  'npcs',
+  'maps',
+] as const
+
+const WIKI_RELATION_OPTIONS = WIKI_CATEGORY_KEYS.filter((k) => WIKI_META[k]).map((k) => ({
+  value: k,
+  label: `${WIKI_META[k].label}（${k}）`,
+}))
+
 // ─────────────────────────────────────────────
 // 字段数据（按分类 key）
 // ─────────────────────────────────────────────
@@ -115,7 +136,19 @@ const FIELDS_BY_KEY: Record<string, WikiField[]> = {
     { key: 'def',         label: '防御力',   i18n: { zh: '防御力',   en: 'DEF'         }, type: 'number',       visible: true,  listDisplay: false, sortable: true,  filterable: false, required: false, order: 6 },
     { key: 'job',         label: '职业限制', i18n: { zh: '职业限制', en: 'Job Limit'   }, type: 'select',       visible: true,  listDisplay: false, sortable: false, filterable: true,  required: false, order: 7 },
     { key: 'description', label: '描述',     i18n: { zh: '描述',     en: 'Description' }, type: 'rich-text',    visible: false, listDisplay: false, sortable: false, filterable: false, required: false, order: 8 },
-    { key: 'set_parts',   label: '套装组成', i18n: { zh: '套装组成', en: 'Set Parts'   }, type: 'card-ref',     visible: true,  listDisplay: true,  sortable: false, filterable: false, required: false, order: 9 },
+    {
+      key: 'set_parts',
+      label: '套装组成',
+      i18n: { zh: '套装组成', en: 'Set Parts' },
+      type: 'card-ref',
+      visible: true,
+      listDisplay: true,
+      sortable: false,
+      filterable: false,
+      required: false,
+      order: 9,
+      cardRefWikiKey: 'cards',
+    },
   ],
   monsters: [
     { key: 'icon',     label: '图标',     i18n: { zh: '图标',     en: 'Icon'     }, type: 'single-image', visible: true,  listDisplay: true,  sortable: false, filterable: false, required: true,  order: 1 },
@@ -163,22 +196,61 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   }
   const openEditFieldModal = (record: WikiField) => {
     setEditingField(record)
-    fieldForm.setFieldsValue(record)
+    fieldForm.setFieldsValue({
+      ...record,
+      cardRefWikiKey:
+        record.type === 'card-ref' || record.type === 'card-ref-multi'
+          ? record.cardRefWikiKey ?? 'items'
+          : undefined,
+    })
     setSelectOptions(normalizeSelectOptions(record.selectOptions))
     setOptionInput('')
     setFieldModalOpen(true)
   }
   const handleFieldSave = () => {
-    fieldForm.validateFields().then(values => {
+    fieldForm.validateFields().then((raw) => {
+      const values = { ...raw } as Record<string, unknown> & {
+        key: string
+        label: string
+        type: FieldType
+        cardRefWikiKey?: string
+      }
+      if (values.type !== 'card-ref' && values.type !== 'card-ref-multi') {
+        delete values.cardRefWikiKey
+      }
       const defaults = { visible: true, listDisplay: true, sortable: false, filterable: false }
       const extra = values.type === 'select' ? { selectOptions } : {}
       if (editingField) {
-        setFields(prev => prev.map(f => f.key === editingField.key ? { ...f, ...values, required: editingField.required, ...extra } : f))
+        setFields((prev) =>
+          prev.map((f) =>
+            f.key === editingField.key
+              ? ({
+                  ...f,
+                  ...values,
+                  required: editingField.required,
+                  ...extra,
+                } as WikiField)
+              : f,
+          ),
+        )
         messageApi.success('字段已更新')
       } else {
-        if (fields.some(f => f.key === values.key)) { messageApi.error('字段 Key 已存在'); return }
-        const maxOrder = Math.max(...fields.map(f => f.order), 0)
-        setFields(prev => [...prev, { ...defaults, ...values, required: false, ...extra, i18n: { zh: values.label }, order: maxOrder + 1 }])
+        if (fields.some((f) => f.key === values.key)) {
+          messageApi.error('字段 Key 已存在')
+          return
+        }
+        const maxOrder = Math.max(...fields.map((f) => f.order), 0)
+        setFields((prev) => [
+          ...prev,
+          {
+            ...defaults,
+            ...values,
+            required: false,
+            ...extra,
+            i18n: { zh: values.label },
+            order: maxOrder + 1,
+          } as WikiField,
+        ])
         messageApi.success('字段已新增')
       }
       setFieldModalOpen(false)
@@ -302,7 +374,21 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
         </div>
       ),
     },
-    { title: '类型', dataIndex: 'type', key: 'type', render: (v: FieldType) => <Tag color={fieldTypeColors[v]}>{fieldTypeLabels[v] ?? v}</Tag> },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      render: (v: FieldType, record: WikiField) => (
+        <div>
+          <Tag color={fieldTypeColors[v]}>{fieldTypeLabels[v] ?? v}</Tag>
+          {(v === 'card-ref' || v === 'card-ref-multi') && record.cardRefWikiKey && WIKI_META[record.cardRefWikiKey] ? (
+            <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>
+              关联：{WIKI_META[record.cardRefWikiKey].label}
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
     {
       title: '操作', key: 'action',
       render: (_: unknown, record: WikiField) => (
@@ -619,8 +705,34 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
             <Input placeholder="如：攻击力" />
           </Form.Item>
           <Form.Item name="type" label="字段类型" rules={[{ required: true }]}>
-            <Select options={(Object.entries(fieldTypeLabels) as [FieldType, string][]).map(([value, label]) => ({ value, label: `${label}（${value}）` }))} />
+            <Select
+              options={(Object.entries(fieldTypeLabels) as [FieldType, string][]).map(([value, label]) => ({
+                value,
+                label: `${label}（${value}）`,
+              }))}
+              onChange={(v: FieldType) => {
+                if (v === 'card-ref' || v === 'card-ref-multi') {
+                  const k = fieldForm.getFieldValue('cardRefWikiKey') as string | undefined
+                  if (k == null || k === '') fieldForm.setFieldValue('cardRefWikiKey', 'items')
+                }
+              }}
+            />
           </Form.Item>
+
+          {(watchedType === 'card-ref' || watchedType === 'card-ref-multi') && (
+            <Form.Item
+              name="cardRefWikiKey"
+              label="关联关系"
+              rules={[{ required: true, message: '请选择关联的 Wiki 分类' }]}
+            >
+              <Select
+                placeholder="选择 Wiki 分类"
+                options={WIKI_RELATION_OPTIONS}
+                showSearch
+                optionFilterProp="label"
+              />
+            </Form.Item>
+          )}
 
           {/* 单选选项编辑区（仅 type === 'select' 时展示） */}
           {watchedType === 'select' && (
