@@ -6,5 +6,5 @@ export default async function WikiConfigPage({
   params: Promise<{ key: string }>
 }) {
   const { key } = await params
-  return <WikiConfigPageClient wikiKey={key} />
+  return <WikiConfigPageClient key={key} wikiKey={key} />
 }

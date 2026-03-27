@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import {
   Table, Button, Tag, Space, Input, Select, Modal, Form,
   Tooltip, Popconfirm, message, Checkbox, Drawer,
@@ -235,7 +235,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   // ── 列表样式 ──────────────────────────────────
   const [selectedStyle, setSelectedStyle] = useState<ListStyle>('card-list')
   const [listFieldKeys, setListFieldKeys] = useState<string[]>([])
-  const currentStyleConfig = LIST_STYLES.find(s => s.id === selectedStyle)!
+  const currentStyleConfig = LIST_STYLES.find((s) => s.id === selectedStyle) ?? LIST_STYLES[0]
   const allowedFieldKeys = sortedFields.filter(f => f.visible && currentStyleConfig.allowedTypes.includes(f.type)).map(f => f.key)
   const validListFieldKeys = listFieldKeys.filter(k => allowedFieldKeys.includes(k))
 
@@ -243,6 +243,30 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   const [selectedDetailStyle, setSelectedDetailStyle] = useState<DetailStyle>('detail-1')
   const [detail1Config, setDetail1Config] = useState<Detail1Config>({ mainTitle: '基本信息', mainFieldKeys: [], richTableSections: [], sideTitle: '道具信息', sideFieldKeys: [] })
   const [detail2Config, setDetail2Config] = useState<Detail2Config>({ mainFieldKeys: [], sideTitle: '道具信息', sideFieldKeys: [] })
+
+  /** 路由 [key] 切换时同步字段模板（避免复用 Client 时仍显示上一分类的配置或空白） */
+  useEffect(() => {
+    setFields(FIELDS_BY_KEY[wikiKey] ?? DEFAULT_FIELDS)
+    setListFieldKeys([])
+    setSelectedStyle('card-list')
+    setSelectedDetailStyle('detail-1')
+    setDetail1Config({
+      mainTitle: '基本信息',
+      mainFieldKeys: [],
+      richTableSections: [],
+      sideTitle: '道具信息',
+      sideFieldKeys: [],
+    })
+    setDetail2Config({ mainFieldKeys: [], sideTitle: '道具信息', sideFieldKeys: [] })
+    setFieldModalOpen(false)
+    setEditingField(null)
+    fieldForm.resetFields()
+    setSelectOptions([])
+    setOptionInput('')
+    setOptionDrawerId(null)
+    setI18nModalOpen(false)
+    setI18nTarget(null)
+  }, [wikiKey])
 
   const addRichTableSection = () => {
     setDetail1Config(prev => ({ ...prev, richTableSections: [...prev.richTableSections, { id: `section_${Date.now()}`, title: '新区域', fieldKeys: [] }] }))
