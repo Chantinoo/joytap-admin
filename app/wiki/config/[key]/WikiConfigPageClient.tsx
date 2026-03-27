@@ -1,16 +1,17 @@
 'use client'
 
 import React, { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Table, Button, Tag, Space, Input, Select, Modal, Form,
   Tooltip, Popconfirm, message, Checkbox, Drawer,
 } from 'antd'
-import { Plus, Edit2, Trash2, Languages, Link2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, Languages, ChevronUp, ChevronDown, ExternalLink, Database } from 'lucide-react'
 import PageBreadcrumb from '../../../components/PageBreadcrumb'
 import FieldI18nModal, { type I18nLabels, LANGUAGES } from '../../components/FieldI18nModal'
 import FieldI18nEditor from '../../components/FieldI18nEditor'
 import ListStylePreview, { LIST_STYLES, type ListStyle } from '../../components/ListStylePreview'
-import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type Detail1Config, type Detail2Config, type RichTableSection, type LinkedTableSection } from '../../components/DetailStylePreview'
+import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type Detail1Config, type Detail2Config, type RichTableSection, type LinkedTableSection, type DetailMiddleSection } from '../../components/DetailStylePreview'
 import {
   getMandatoryLinkedColumnKeys,
   isMandatoryLinkedSubColumn,
@@ -273,6 +274,7 @@ const FIELDS_BY_KEY: Record<string, WikiField[]> = {
 const DEFAULT_FIELDS: WikiField[] = []
 
 export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
+  const router = useRouter()
   const meta = WIKI_META[wikiKey]
   const wikiLabel = meta?.label ?? wikiKey
 
@@ -685,8 +687,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   const [detail1Config, setDetail1Config] = useState<Detail1Config>({
     mainTitle: '基本信息',
     mainFieldKeys: [],
-    richTableSections: [],
-    linkedTableSections: [],
+    middleSections: [],
     sideTitle: '道具信息',
     sideFieldKeys: [],
   })
@@ -701,8 +702,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     setDetail1Config({
       mainTitle: '基本信息',
       mainFieldKeys: [],
-      richTableSections: [],
-      linkedTableSections: [],
+      middleSections: [],
       sideTitle: '道具信息',
       sideFieldKeys: [],
     })
@@ -725,44 +725,72 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     setCardRefLinkNameI18nDraft({})
   }, [wikiKey])
 
-  const addRichTableSection = () => {
-    setDetail1Config(prev => ({ ...prev, richTableSections: [...prev.richTableSections, { id: `section_${Date.now()}`, title: '新区域', fieldKeys: [] }] }))
-  }
-  const removeRichTableSection = (id: string) => {
-    setDetail1Config(prev => ({ ...prev, richTableSections: prev.richTableSections.filter(s => s.id !== id) }))
-  }
-  const updateRichTableSection = (id: string, updates: Partial<RichTableSection>) => {
-    setDetail1Config(prev => ({ ...prev, richTableSections: prev.richTableSections.map(s => s.id === id ? { ...s, ...updates } : s) }))
-  }
-
   const cardRefParentFields = sortedFields.filter(
     (f) => (f.type === 'card-ref' || f.type === 'card-ref-multi') && (f.cardRefLinkedFields?.length ?? 0) > 0,
   )
 
-  const addLinkedTableSection = () => {
+  const addRichMiddleSection = () => {
+    const next: DetailMiddleSection = {
+      kind: 'rich-table',
+      id: `section_${Date.now()}`,
+      title: '新区域',
+      fieldKeys: [],
+    }
+    setDetail1Config((prev) => ({ ...prev, middleSections: [...prev.middleSections, next] }))
+  }
+
+  const addLinkedMiddleSection = () => {
     const first = cardRefParentFields[0]
     const firstKey = first?.key ?? ''
     const sub = first?.cardRefLinkedFields ?? []
     const columnKeys = getMandatoryLinkedColumnKeys(sub)
+    const next: DetailMiddleSection = {
+      kind: 'linked-table',
+      id: `lkts_${Date.now()}`,
+      title: '新关联表格',
+      sourceFieldKey: firstKey,
+      columnKeys,
+    }
+    setDetail1Config((prev) => ({ ...prev, middleSections: [...prev.middleSections, next] }))
+  }
+
+  const updateRichMiddleSection = (id: string, updates: Partial<RichTableSection>) => {
     setDetail1Config((prev) => ({
       ...prev,
-      linkedTableSections: [
-        ...(prev.linkedTableSections ?? []),
-        { id: `lkts_${Date.now()}`, title: '新关联表格', sourceFieldKey: firstKey, columnKeys },
-      ],
+      middleSections: prev.middleSections.map((s) =>
+        s.kind === 'rich-table' && s.id === id ? { ...s, ...updates } : s,
+      ),
     }))
   }
-  const removeLinkedTableSection = (id: string) => {
+
+  const updateLinkedMiddleSection = (id: string, updates: Partial<LinkedTableSection>) => {
     setDetail1Config((prev) => ({
       ...prev,
-      linkedTableSections: (prev.linkedTableSections ?? []).filter((s) => s.id !== id),
+      middleSections: prev.middleSections.map((s) =>
+        s.kind === 'linked-table' && s.id === id ? { ...s, ...updates } : s,
+      ),
     }))
   }
-  const updateLinkedTableSection = (id: string, updates: Partial<LinkedTableSection>) => {
+
+  const removeMiddleSection = (id: string) => {
     setDetail1Config((prev) => ({
       ...prev,
-      linkedTableSections: (prev.linkedTableSections ?? []).map((s) => (s.id === id ? { ...s, ...updates } : s)),
+      middleSections: prev.middleSections.filter((s) => s.id !== id),
     }))
+  }
+
+  const moveMiddleSection = (id: string, delta: -1 | 1) => {
+    setDetail1Config((prev) => {
+      const idx = prev.middleSections.findIndex((s) => s.id === id)
+      if (idx < 0) return prev
+      const j = idx + delta
+      if (j < 0 || j >= prev.middleSections.length) return prev
+      const next = [...prev.middleSections]
+      const tmp = next[idx]!
+      next[idx] = next[j]!
+      next[j] = tmp
+      return { ...prev, middleSections: next }
+    })
   }
 
   // ── 字段表格列 ────────────────────────────────
@@ -809,11 +837,25 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
       render: (_: unknown, record: WikiField) => (
         <Space size={4} wrap>
           {(record.type === 'card-ref' || record.type === 'card-ref-multi') && (
-            <Tooltip title="配置关联 Wiki 子表列的字段 Key 与类型">
-              <Button size="small" type="text" icon={<Link2 size={13} />} onClick={() => openCardRefLinkModal(record)}>
-                配置关联字段
+            <>
+              <Tooltip title="配置关联 Wiki 子表列的字段 Key 与类型">
+                <Button size="small" type="link" icon={<ExternalLink size={13} />} onClick={() => openCardRefLinkModal(record)}>
+                  配置关联字段
+                </Button>
+              </Tooltip>
+              <Button
+                size="small"
+                type="link"
+                icon={<Database size={13} />}
+                onClick={() =>
+                  router.push(
+                    `/wiki/config/${wikiKey}/card-ref/${encodeURIComponent(record.key)}/data?label=${encodeURIComponent(record.label)}`,
+                  )
+                }
+              >
+                数据
               </Button>
-            </Tooltip>
+            </>
           )}
           <Button size="small" type="text" icon={<Edit2 size={13} />} onClick={() => openEditFieldModal(record)}>编辑</Button>
           <Popconfirm title="确认删除该字段？" description="删除后前台将不再展示此字段数据。"
@@ -992,65 +1034,105 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                     </div>
                   </div>
                   <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>② 富媒体表格区域</span>
-                      <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addRichTableSection}>添加区域</Button>
-                    </div>
-                    {detail1Config.richTableSections.length === 0
-                      ? <div style={{ color: '#9CA3AF', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>暂无区域，点击「添加区域」</div>
-                      : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {detail1Config.richTableSections.map(section => (
-                            <div key={section.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', background: '#fff' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                                <Input size="small" value={section.title} onChange={e => updateRichTableSection(section.id, { title: e.target.value })} style={{ flex: 1 }} prefix={<span style={{ color: '#9CA3AF', fontSize: 10 }}>标题</span>} />
-                                <Button size="small" type="text" danger icon={<Trash2 size={12} />} onClick={() => removeRichTableSection(section.id)} />
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {sortedFields.filter(f => f.visible && ['text', 'rich-text', 'number', 'single-image', 'image-group', 'card-ref', 'card-ref-multi'].includes(f.type)).map(f => {
-                                  const checked = section.fieldKeys.includes(f.key)
-                                  return (
-                                    <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                      <Checkbox checked={checked} onChange={e => updateRichTableSection(section.id, { fieldKeys: e.target.checked ? [...section.fieldKeys, f.key] : section.fieldKeys.filter(k => k !== f.key) })} />
-                                      <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
-                                      <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>}
-                  </div>
-                  <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>③ 关联表格</span>
-                      <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addLinkedTableSection}>添加区域</Button>
-                    </div>
-                    {cardRefParentFields.length === 0 ? (
-                      <div style={{ color: '#9CA3AF', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
-                        暂无可用数据源：请先添加「关联卡片」类字段，并在「配置关联字段」中定义子列
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>② 富媒体表格</span>
+                          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4, lineHeight: 1.45 }}>
+                            富媒体与关联表格为同一列表，可交叉排序；模块右侧 ↑↓ 调整顺序。
+                          </div>
+                        </div>
+                        <Space size={6} wrap>
+                          <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addRichMiddleSection}>富媒体表格</Button>
+                          <Tooltip title={cardRefParentFields.length === 0 ? '请先添加「关联卡片」字段并配置关联列' : undefined}>
+                            <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addLinkedMiddleSection} disabled={cardRefParentFields.length === 0}>
+                              关联表格
+                            </Button>
+                          </Tooltip>
+                        </Space>
                       </div>
-                    ) : (detail1Config.linkedTableSections ?? []).length === 0 ? (
+                    </div>
+                    {cardRefParentFields.length === 0 && (
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>
+                        暂无关联表格数据源时，仅可添加富媒体表格；添加「关联卡片」字段后可插入关联表格模块。
+                      </div>
+                    )}
+                    {detail1Config.middleSections.length === 0 ? (
                       <div style={{ color: '#9CA3AF', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
-                        暂无区域，点击「添加区域」
+                        暂无模块，点击「富媒体表格」或「关联表格」
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {(detail1Config.linkedTableSections ?? []).map((section) => {
+                        {detail1Config.middleSections.map((section, index) => {
+                          const total = detail1Config.middleSections.length
+                          if (section.kind === 'rich-table') {
+                            return (
+                              <div key={section.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', background: '#fff' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                                    <Tag color="blue" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>富媒体</Tag>
+                                    <Input
+                                      size="small"
+                                      value={section.title}
+                                      onChange={e => updateRichMiddleSection(section.id, { title: e.target.value })}
+                                      style={{ flex: 1, minWidth: 0 }}
+                                      prefix={<span style={{ color: '#9CA3AF', fontSize: 10 }}>标题</span>}
+                                    />
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0 }}>
+                                    <Space size={0}>
+                                      <Tooltip title="上移">
+                                        <Button size="small" type="text" icon={<ChevronUp size={14} />} disabled={index === 0} onClick={() => moveMiddleSection(section.id, -1)} style={{ color: '#6B7280' }} />
+                                      </Tooltip>
+                                      <Tooltip title="下移">
+                                        <Button size="small" type="text" icon={<ChevronDown size={14} />} disabled={index >= total - 1} onClick={() => moveMiddleSection(section.id, 1)} style={{ color: '#6B7280' }} />
+                                      </Tooltip>
+                                    </Space>
+                                    <Button size="small" type="text" danger icon={<Trash2 size={12} />} onClick={() => removeMiddleSection(section.id)} />
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {sortedFields.filter(f => f.visible && ['text', 'rich-text', 'number', 'single-image', 'image-group', 'card-ref', 'card-ref-multi'].includes(f.type)).map(f => {
+                                    const checked = section.fieldKeys.includes(f.key)
+                                    return (
+                                      <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Checkbox checked={checked} onChange={e => updateRichMiddleSection(section.id, { fieldKeys: e.target.checked ? [...section.fieldKeys, f.key] : section.fieldKeys.filter(k => k !== f.key) })} />
+                                        <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
+                                        <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          }
                           const parent = sortedFields.find((f) => f.key === section.sourceFieldKey)
                           const subCols = parent?.cardRefLinkedFields ?? []
                           const columnKeysNorm = normalizeLinkedColumnKeys(section.columnKeys, subCols)
                           return (
                             <div key={section.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', background: '#fff' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                                <Input
-                                  size="small"
-                                  value={section.title}
-                                  onChange={(e) => updateLinkedTableSection(section.id, { title: e.target.value })}
-                                  style={{ flex: 1 }}
-                                  prefix={<span style={{ color: '#9CA3AF', fontSize: 10 }}>标题</span>}
-                                />
-                                <Button size="small" type="text" danger icon={<Trash2 size={12} />} onClick={() => removeLinkedTableSection(section.id)} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                                  <Tag color="geekblue" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>关联</Tag>
+                                  <Input
+                                    size="small"
+                                    value={section.title}
+                                    onChange={(e) => updateLinkedMiddleSection(section.id, { title: e.target.value })}
+                                    style={{ flex: 1, minWidth: 0 }}
+                                    prefix={<span style={{ color: '#9CA3AF', fontSize: 10 }}>标题</span>}
+                                  />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0 }}>
+                                  <Space size={0}>
+                                    <Tooltip title="上移">
+                                      <Button size="small" type="text" icon={<ChevronUp size={14} />} disabled={index === 0} onClick={() => moveMiddleSection(section.id, -1)} style={{ color: '#6B7280' }} />
+                                    </Tooltip>
+                                    <Tooltip title="下移">
+                                      <Button size="small" type="text" icon={<ChevronDown size={14} />} disabled={index >= total - 1} onClick={() => moveMiddleSection(section.id, 1)} style={{ color: '#6B7280' }} />
+                                    </Tooltip>
+                                  </Space>
+                                  <Button size="small" type="text" danger icon={<Trash2 size={12} />} onClick={() => removeMiddleSection(section.id)} />
+                                </div>
                               </div>
                               <div style={{ marginBottom: 8 }}>
                                 <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>数据来源（关联卡片字段）</div>
@@ -1062,7 +1144,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                                   options={cardRefParentFields.map((f) => ({ value: f.key, label: `${f.label}（${f.key}）` }))}
                                   onChange={(v) => {
                                     const sub = sortedFields.find((f) => f.key === v)?.cardRefLinkedFields ?? []
-                                    updateLinkedTableSection(section.id, {
+                                    updateLinkedMiddleSection(section.id, {
                                       sourceFieldKey: v,
                                       columnKeys: getMandatoryLinkedColumnKeys(sub),
                                     })
@@ -1088,7 +1170,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                                           const m = getMandatoryLinkedColumnKeys(subCols)
                                           const mSet = new Set(m)
                                           const optional = current.filter((k) => !mSet.has(k))
-                                          updateLinkedTableSection(section.id, {
+                                          updateLinkedMiddleSection(section.id, {
                                             columnKeys: e.target.checked
                                               ? [...m, ...optional.filter((k) => k !== col.fieldKey), col.fieldKey]
                                               : [...m, ...optional.filter((k) => k !== col.fieldKey)],
@@ -1110,7 +1192,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                     )}
                   </div>
                   <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>④ 侧边栏字段</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>③ 侧边栏字段</div>
                     <Input size="small" value={detail1Config.sideTitle} onChange={e => setDetail1Config(prev => ({ ...prev, sideTitle: e.target.value }))} placeholder="侧边栏标题" style={{ marginBottom: 8 }} prefix={<span style={{ color: '#9CA3AF', fontSize: 11 }}>标题</span>} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                       {sortedFields.filter(f => f.visible).map(f => {
@@ -1133,8 +1215,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                   <div style={{ padding: 16, background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, minHeight: 120 }}>
                     {detail1Config.mainFieldKeys.length === 0
                       && detail1Config.sideFieldKeys.length === 0
-                      && detail1Config.richTableSections.length === 0
-                      && (detail1Config.linkedTableSections ?? []).length === 0
+                      && detail1Config.middleSections.length === 0
                       ? <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: '24px 0' }}>请在左侧配置字段</div>
                       : <DetailStylePreview style="detail-1" fields={sortedFields} detail1Config={detail1Config} />}
                   </div>
@@ -1409,9 +1490,6 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
           </div>
         )}
       >
-        <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6B7280' }}>
-          为「关联卡片」定义子表列：英文字段 Key 将用于接口 / 前台数据绑定；显示名称、类型对应表格列头与展示方式。
-        </p>
         <div
           style={{
             display: 'flex',

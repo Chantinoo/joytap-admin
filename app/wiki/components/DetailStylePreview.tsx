@@ -17,7 +17,7 @@ export const DETAIL_STYLES: DetailStyleConfig[] = [
   {
     id: 'detail-1',
     label: '详情样式 1',
-    description: '顶部图文主区域 + 多个富媒体表格区域 + 右侧属性侧边栏',
+    description: '顶部图文主区域 + 富媒体/关联表格模块（可交叉排序）+ 右侧属性侧边栏',
     icon: '📄',
   },
   {
@@ -45,14 +45,46 @@ export interface LinkedTableSection {
   columnKeys: string[]
 }
 
+/** 详情页主栏中部模块：富媒体表格与关联表格可任意交叉排序 */
+export type DetailMiddleSection =
+  | ({ kind: 'rich-table' } & RichTableSection)
+  | ({ kind: 'linked-table' } & LinkedTableSection)
+
 /** 详情样式1的完整配置 */
 export interface Detail1Config {
   mainTitle: string
   mainFieldKeys: string[]
-  richTableSections: RichTableSection[]
-  linkedTableSections: LinkedTableSection[]
+  /** 主区域与侧边栏之间的表格模块（富媒体 / 关联），顺序即前台展示顺序 */
+  middleSections: DetailMiddleSection[]
   sideTitle: string
   sideFieldKeys: string[]
+}
+
+/** 兼容旧版 richTableSections + linkedTableSections（富媒体在前、关联在后） */
+export function normalizeDetail1Config(
+  config: Detail1Config & {
+    richTableSections?: RichTableSection[]
+    linkedTableSections?: LinkedTableSection[]
+  },
+): Detail1Config {
+  const hasLegacy =
+    (config.richTableSections && config.richTableSections.length > 0) ||
+    (config.linkedTableSections && config.linkedTableSections.length > 0)
+  if (config.middleSections && config.middleSections.length > 0) {
+    const { richTableSections: _r, linkedTableSections: _l, ...rest } = config
+    return { ...rest, middleSections: config.middleSections }
+  }
+  if (hasLegacy) {
+    const rich = config.richTableSections ?? []
+    const linked = config.linkedTableSections ?? []
+    const middleSections: DetailMiddleSection[] = [
+      ...rich.map((s) => ({ kind: 'rich-table' as const, ...s })),
+      ...linked.map((s) => ({ kind: 'linked-table' as const, ...s })),
+    ]
+    const { richTableSections: _r, linkedTableSections: _l, ...rest } = config
+    return { ...rest, middleSections }
+  }
+  return { ...config, middleSections: config.middleSections ?? [] }
 }
 
 /** 详情样式2的完整配置 */
@@ -141,10 +173,11 @@ function mockLinkedCell(fieldKey: string): string {
 export default function DetailStylePreview({ style, fields, detail1Config, detail2Config }: Props) {
   // ── 详情样式 1 ──────────────────────────────────────────
   if (style === 'detail-1' && detail1Config) {
-    const mainFields = wikiFieldsInKeyOrder(fields, detail1Config.mainFieldKeys)
+    const d1 = normalizeDetail1Config(detail1Config as Detail1Config & { richTableSections?: RichTableSection[]; linkedTableSections?: LinkedTableSection[] })
+    const mainFields = wikiFieldsInKeyOrder(fields, d1.mainFieldKeys)
     const imageField = mainFields.find(f => f.type === 'single-image' || f.type === 'image-group')
     const textFields = mainFields.filter(f => f.type !== 'single-image' && f.type !== 'image-group')
-    const sideFields = wikiFieldsInKeyOrder(fields, detail1Config.sideFieldKeys)
+    const sideFields = wikiFieldsInKeyOrder(fields, d1.sideFieldKeys)
 
     return (
       <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
@@ -168,7 +201,7 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#1F2937', marginBottom: 6 }}>
-                  {getValue('name') || detail1Config.mainTitle}
+                  {getValue('name') || d1.mainTitle}
                 </div>
                 {textFields.map(f => (
                   <div key={f.key} style={{ display: 'flex', gap: 8, lineHeight: 1.8, fontSize: 12 }}>
@@ -180,70 +213,65 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
             </div>
           </div>
 
-          {/* 模块二：富媒体表格区域 */}
-          {detail1Config.richTableSections.map(section => {
-            const sectionFields = wikiFieldsInKeyOrder(fields, section.fieldKeys)
-            return (
-              <div key={section.id} style={{
-                border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden',
-                background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              }}>
-                {/* 区域标题 */}
-                <div style={{
-                  background: '#F3F4F6', padding: '8px 14px',
-                  display: 'flex', alignItems: 'center', gap: 6,
+          {/* 模块二：中部表格（富媒体 / 关联，顺序与配置一致） */}
+          {d1.middleSections.map((section) => {
+            if (section.kind === 'rich-table') {
+              const sectionFields = wikiFieldsInKeyOrder(fields, section.fieldKeys)
+              return (
+                <div key={section.id} style={{
+                  border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden',
+                  background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                 }}>
-                  <div style={{ width: 3, height: 14, background: '#D97706', borderRadius: 2 }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{section.title}</span>
+                  <div style={{
+                    background: '#F3F4F6', padding: '8px 14px',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <div style={{ width: 3, height: 14, background: '#D97706', borderRadius: 2 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{section.title}</span>
+                  </div>
+                  {sectionFields.length > 0 ? (
+                    <div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${sectionFields.length}, 1fr)`,
+                        borderBottom: '1px solid #E5E7EB',
+                        background: '#FAFAFA',
+                      }}>
+                        {sectionFields.map(f => (
+                          <div key={f.key} style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, color: '#6B7280' }}>
+                            {f.label}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${sectionFields.length}, 1fr)`,
+                        padding: '0',
+                      }}>
+                        {sectionFields.map(f => (
+                          <div key={f.key} style={{ padding: '8px 12px', fontSize: 12, color: '#374151' }}>
+                            {f.type === 'single-image' || f.type === 'image-group' ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: 16 }}>📦</span>
+                                <span>神秘箱子</span>
+                              </span>
+                            ) : f.type === 'number' ? (
+                              <span>{f.key === 'drop_rate' ? <span style={{ color: '#DC2626', fontWeight: 500 }}>0.11%</span> : '47'}</span>
+                            ) : (
+                              <span>{getValue(f.key) || '—'}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '12px 14px', color: '#9CA3AF', fontSize: 12 }}>
+                      暂无字段配置
+                    </div>
+                  )}
                 </div>
-                {/* 表格表头 */}
-                {sectionFields.length > 0 ? (
-                  <div>
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${sectionFields.length}, 1fr)`,
-                      borderBottom: '1px solid #E5E7EB',
-                      background: '#FAFAFA',
-                    }}>
-                      {sectionFields.map(f => (
-                        <div key={f.key} style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, color: '#6B7280' }}>
-                          {f.label}
-                        </div>
-                      ))}
-                    </div>
-                    {/* 表格数据行（mock） */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${sectionFields.length}, 1fr)`,
-                      padding: '0',
-                    }}>
-                      {sectionFields.map(f => (
-                        <div key={f.key} style={{ padding: '8px 12px', fontSize: 12, color: '#374151' }}>
-                          {f.type === 'single-image' || f.type === 'image-group' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ fontSize: 16 }}>📦</span>
-                              <span>神秘箱子</span>
-                            </span>
-                          ) : f.type === 'number' ? (
-                            <span>{f.key === 'drop_rate' ? <span style={{ color: '#DC2626', fontWeight: 500 }}>0.11%</span> : '47'}</span>
-                          ) : (
-                            <span>{getValue(f.key) || '—'}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ padding: '12px 14px', color: '#9CA3AF', fontSize: 12 }}>
-                    暂无字段配置
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {/* 模块三：关联表格（列来自「配置关联字段」） */}
-          {(detail1Config.linkedTableSections ?? []).map((section) => {
+              )
+            }
             const parent = fields.find((f) => f.key === section.sourceFieldKey)
             const linked = parent?.cardRefLinkedFields ?? []
             const cols = cardRefColsInKeyOrder(linked, normalizeLinkedColumnKeys(section.columnKeys, linked))
@@ -329,7 +357,7 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
               background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}>
               <div style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: '#374151', borderBottom: '1px solid #E5E7EB' }}>
-                {detail1Config.sideTitle || '道具信息'}
+                {d1.sideTitle || '道具信息'}
               </div>
               {sideFields.map((f, i) => {
                 const raw = MOCK_DETAIL[f.key]
