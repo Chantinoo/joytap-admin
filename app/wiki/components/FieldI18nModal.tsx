@@ -37,7 +37,7 @@ export default function FieldI18nModal({ open, fieldKey, fieldLabel, i18n, onSav
       onCancel={onCancel}
       footer={null}
       width={520}
-      destroyOnClose
+      destroyOnHidden
     >
       <FieldI18nEditor key={version} i18n={i18n} fieldLabel={fieldLabel} onSave={onSave} onCancel={onCancel} />
     </Modal>

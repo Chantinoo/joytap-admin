@@ -2,13 +2,14 @@
 
 import React, { useState, Suspense } from 'react'
 import {
-  Table, Button, Tag, Space, Input, Select, Modal, Form, Switch,
+  Table, Button, Tag, Space, Input, Modal, Form, Switch,
   Tooltip, Popconfirm, message,
 } from 'antd'
-import { Plus, Edit2, Trash2, ExternalLink, Search, Database } from 'lucide-react'
+import { Plus, Edit2, Trash2, ExternalLink, Database, Languages } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
+import FieldI18nModal, { type I18nLabels, LANGUAGES } from './components/FieldI18nModal'
 
 // ─────────────────────────────────────────────
 // Types
@@ -16,7 +17,8 @@ import ForumSelectRequired from '../components/ForumSelectRequired'
 interface WikiNav {
   key: string
   label: string
-  description: string
+  /** 名称多语言，与字段配置中的 i18n 结构一致；展示主文案以 zh 为准，与 label 同步 */
+  labelI18n: I18nLabels
   link: string
   enabled: boolean
   fieldCount: number
@@ -28,16 +30,16 @@ interface WikiNav {
 // Nav data
 // ─────────────────────────────────────────────
 const initialNavs: WikiNav[] = [
-  { key: 'items',    label: '道具',     description: '武器、防具、消耗品、材料等游戏道具',   link: '/wiki/items',    enabled: true,  fieldCount: 11, order: 1 },
-  { key: 'monsters', label: '怪物',     description: '普通怪物、MVP、Mini Boss 等',         link: '/wiki/monsters', enabled: true,  fieldCount: 13, order: 2 },
-  { key: 'cards',    label: '卡片',     description: '怪物掉落卡片及其效果',               link: '/wiki/cards',    enabled: true,  fieldCount: 8,  order: 3 },
-  { key: 'pets',     label: '宠物',     description: '可捕获的宠物及其属性、亲密度等',     link: '/wiki/pets',     enabled: true,  fieldCount: 9,  order: 4 },
-  { key: 'boxes',    label: '箱子',     description: '宝箱、礼包等可开启的容器类道具',     link: '/wiki/boxes',    enabled: true,  fieldCount: 6,  order: 5 },
-  { key: 'arrows',   label: '箭矢制作', description: '弓箭手系列箭矢的制作配方',           link: '/wiki/arrows',   enabled: true,  fieldCount: 7,  order: 6 },
-  { key: 'sets',     label: '套装',     description: '装备套装组合及套装效果',             link: '/wiki/sets',     enabled: true,  fieldCount: 8,  order: 7 },
-  { key: 'skills',   label: '技能模拟', description: '各职业技能树与技能效果模拟',         link: '/wiki/skills',   enabled: false, fieldCount: 12, order: 8 },
-  { key: 'npcs',     label: 'NPC',      description: '游戏内 NPC 位置、功能与对话',        link: '/wiki/npcs',     enabled: true,  fieldCount: 7,  order: 9 },
-  { key: 'maps',     label: '地图',     description: '游戏地图信息、怪物分布与传送点',     link: '/wiki/maps',     enabled: true,  fieldCount: 10, order: 10 },
+  { key: 'items',    label: '道具',     labelI18n: { zh: '道具',     en: 'Items',          'zh-tw': '道具' },     link: '/wiki/items',    enabled: true,  fieldCount: 10, order: 1 },
+  { key: 'monsters', label: '怪物',     labelI18n: { zh: '怪物',     en: 'Monsters',       'zh-tw': '怪物' },     link: '/wiki/monsters', enabled: true,  fieldCount: 13, order: 2 },
+  { key: 'cards',    label: '卡片',     labelI18n: { zh: '卡片',     en: 'Cards',          'zh-tw': '卡片' },     link: '/wiki/cards',    enabled: true,  fieldCount: 8,  order: 3 },
+  { key: 'pets',     label: '宠物',     labelI18n: { zh: '宠物',     en: 'Pets',           'zh-tw': '寵物' },     link: '/wiki/pets',     enabled: true,  fieldCount: 9,  order: 4 },
+  { key: 'boxes',    label: '箱子',     labelI18n: { zh: '箱子',     en: 'Boxes',          'zh-tw': '箱子' },     link: '/wiki/boxes',    enabled: true,  fieldCount: 6,  order: 5 },
+  { key: 'arrows',   label: '箭矢制作', labelI18n: { zh: '箭矢制作', en: 'Arrow Crafting', 'zh-tw': '箭矢製作' }, link: '/wiki/arrows',   enabled: true,  fieldCount: 7,  order: 6 },
+  { key: 'sets',     label: '套装',     labelI18n: { zh: '套装',     en: 'Equipment Sets', 'zh-tw': '套裝' },     link: '/wiki/sets',     enabled: true,  fieldCount: 8,  order: 7 },
+  { key: 'skills',   label: '技能模拟', labelI18n: { zh: '技能模拟', en: 'Skill Simulator','zh-tw': '技能模擬' }, link: '/wiki/skills',   enabled: false, fieldCount: 12, order: 8 },
+  { key: 'npcs',     label: 'NPC',      labelI18n: { zh: 'NPC',      en: 'NPCs',           'zh-tw': 'NPC' },      link: '/wiki/npcs',     enabled: true,  fieldCount: 7,  order: 9 },
+  { key: 'maps',     label: '地图',     labelI18n: { zh: '地图',     en: 'Maps',           'zh-tw': '地圖' },     link: '/wiki/maps',     enabled: true,  fieldCount: 10, order: 10 },
 ]
 
 
@@ -53,6 +55,11 @@ function WikiManageInner() {
   const [navModalOpen, setNavModalOpen] = useState(false)
   const [editingNav, setEditingNav] = useState<WikiNav | null>(null)
   const [navForm] = Form.useForm()
+  const [navNameI18nModalOpen, setNavNameI18nModalOpen] = useState(false)
+  const [pendingNavLabelI18n, setPendingNavLabelI18n] = useState<I18nLabels>({})
+  /** 列表「Wiki 名称」列内直接打开多语言（与编辑弹窗内的多语言分开） */
+  const [listRowI18nOpen, setListRowI18nOpen] = useState(false)
+  const [listRowI18nNav, setListRowI18nNav] = useState<WikiNav | null>(null)
 
   const sortedNavs = [...navs].sort((a, b) => a.order - b.order)
 
@@ -60,29 +67,56 @@ function WikiManageInner() {
     setEditingNav(null)
     navForm.resetFields()
     navForm.setFieldsValue({ enabled: true })
+    setPendingNavLabelI18n({})
     setNavModalOpen(true)
   }
 
   const openEditNavModal = (record: WikiNav) => {
     setEditingNav(record)
     navForm.setFieldsValue(record)
+    setPendingNavLabelI18n({
+      ...(record.labelI18n || {}),
+      zh: record.labelI18n?.zh ?? record.label,
+    })
     setNavModalOpen(true)
+  }
+
+  const handleNavNameI18nSave = (i18n: I18nLabels) => {
+    const zh = (i18n.zh ?? '').trim()
+    setPendingNavLabelI18n(i18n)
+    navForm.setFieldsValue({ label: zh || navForm.getFieldValue('label') })
+    setNavNameI18nModalOpen(false)
+    messageApi.success('多语言配置已保存')
+  }
+
+  const openNavNameI18nModal = () => {
+    const zh = (navForm.getFieldValue('label') as string | undefined)?.trim() ?? ''
+    setPendingNavLabelI18n((prev) => ({ ...prev, ...(zh ? { zh } : {}) }))
+    setNavNameI18nModalOpen(true)
   }
 
   const handleNavSave = () => {
     navForm.validateFields().then(values => {
+      const zh = String(values.label ?? '').trim()
+      const labelI18n: I18nLabels = { ...pendingNavLabelI18n, zh }
+      const row: Omit<WikiNav, 'link' | 'order' | 'fieldCount'> & Partial<Pick<WikiNav, 'link' | 'order' | 'fieldCount'>> = {
+        ...values,
+        label: zh,
+        labelI18n,
+      }
       if (editingNav) {
-        setNavs(prev => prev.map(n => n.key === editingNav.key ? { ...n, ...values } : n))
+        setNavs(prev => prev.map(n => (n.key === editingNav.key ? { ...n, ...row } as WikiNav : n)))
         messageApi.success('已更新')
       } else {
         const keyExists = navs.some(n => n.key === values.key)
         if (keyExists) { messageApi.error('Key 已存在'); return }
         const maxOrder = Math.max(...navs.map(n => n.order), 0)
         const link = `/wiki/${values.key}`
-        setNavs(prev => [...prev, { ...values, link, order: maxOrder + 1, fieldCount: 0 }])
+        setNavs(prev => [...prev, { ...row, link, order: maxOrder + 1, fieldCount: 0 } as WikiNav])
         messageApi.success('已新增')
       }
       setNavModalOpen(false)
+      setPendingNavLabelI18n({})
     })
   }
 
@@ -91,20 +125,65 @@ function WikiManageInner() {
     messageApi.success('已删除')
   }
 
+  const openListRowI18nModal = (record: WikiNav) => {
+    setListRowI18nNav({
+      ...record,
+      labelI18n: {
+        ...(record.labelI18n || {}),
+        zh: record.labelI18n?.zh ?? record.label,
+      },
+    })
+    setListRowI18nOpen(true)
+  }
+
+  const handleListRowI18nSave = (i18n: I18nLabels) => {
+    if (!listRowI18nNav) return
+    const nextZh = (i18n.zh ?? '').trim()
+    setNavs((prev) =>
+      prev.map((n) =>
+        n.key === listRowI18nNav.key
+          ? { ...n, labelI18n: i18n, label: nextZh || n.label }
+          : n,
+      ),
+    )
+    setListRowI18nOpen(false)
+    setListRowI18nNav(null)
+    messageApi.success('多语言配置已保存')
+  }
+
+  const closeListRowI18nModal = () => {
+    setListRowI18nOpen(false)
+    setListRowI18nNav(null)
+  }
+
   // ── Wiki 分类表格列 ─────────────────────────────
   const navColumns = [
     {
-      title: 'Wiki 名称', dataIndex: 'label', key: 'label', width: 160,
+      title: 'Wiki 名称', dataIndex: 'label', key: 'label', width: 220,
       render: (v: string, record: WikiNav) => (
         <div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{v}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{v}</span>
+            <Tooltip title="配置多语言">
+              <Button
+                size="small"
+                type="text"
+                icon={<Languages size={12} />}
+                style={{ color: '#1677FF', padding: '0 4px', height: 20 }}
+                onClick={() => openListRowI18nModal(record)}
+              />
+            </Tooltip>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {LANGUAGES.filter(l => record.labelI18n?.[l.code]?.trim()).map(l => (
+                <Tooltip key={l.code} title={`${l.label}: ${record.labelI18n[l.code]}`}>
+                  <span style={{ fontSize: 11, color: '#6B7280', background: '#F3F4F6', padding: '1px 5px', borderRadius: 3, cursor: 'default', lineHeight: '18px' }}>{l.code}</span>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
           <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>key: {record.key}</div>
         </div>
       ),
-    },
-    {
-      title: '说明', dataIndex: 'description', key: 'description', width: 300,
-      render: (v: string) => <span style={{ fontSize: 13, color: '#6B7280' }}>{v}</span>,
     },
     {
       title: '链接', dataIndex: 'link', key: 'link', width: 160,
@@ -207,7 +286,7 @@ function WikiManageInner() {
         title={editingNav ? '编辑 Wiki 分类' : '新增 Wiki 分类'}
         open={navModalOpen}
         onOk={handleNavSave}
-        onCancel={() => setNavModalOpen(false)}
+        onCancel={() => { setNavModalOpen(false); setPendingNavLabelI18n({}) }}
         okText="保存"
         cancelText="取消"
         width={480}
@@ -223,17 +302,51 @@ function WikiManageInner() {
           >
             <Input placeholder="如：cards、pets" disabled={!!editingNav} />
           </Form.Item>
-          <Form.Item name="label" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input placeholder="如：卡片、宠物" />
-          </Form.Item>
-          <Form.Item name="description" label="说明">
-            <Input.TextArea placeholder="简要描述该 Wiki 分类包含的内容" rows={2} />
+          <Form.Item label="名称" required style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <Form.Item name="label" noStyle rules={[{ required: true, message: '请输入名称' }]}>
+                <Input
+                  placeholder="如：卡片、宠物（默认作为简体中文）"
+                  style={{ flex: 1 }}
+                  onChange={e => setPendingNavLabelI18n(prev => ({ ...prev, zh: e.target.value }))}
+                />
+              </Form.Item>
+              <Tooltip title="配置多语言">
+                <Button
+                  type="text"
+                  icon={<Languages size={16} />}
+                  style={{ color: '#1677FF', flexShrink: 0, marginTop: 4 }}
+                  onClick={openNavNameI18nModal}
+                />
+              </Tooltip>
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#9CA3AF' }}>
+              与字段配置一致：可点击图标打开多语言弹窗，支持 AI 一键翻译。
+            </p>
           </Form.Item>
           <Form.Item name="enabled" label="前台启用" valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
       </Modal>
+
+      <FieldI18nModal
+        open={navNameI18nModalOpen}
+        fieldKey="name"
+        fieldLabel={(pendingNavLabelI18n.zh ?? navForm.getFieldValue('label') ?? '').trim() || '名称'}
+        i18n={pendingNavLabelI18n}
+        onSave={handleNavNameI18nSave}
+        onCancel={() => setNavNameI18nModalOpen(false)}
+      />
+
+      <FieldI18nModal
+        open={listRowI18nOpen && !!listRowI18nNav}
+        fieldKey={listRowI18nNav?.key ?? 'name'}
+        fieldLabel={(listRowI18nNav?.labelI18n?.zh ?? listRowI18nNav?.label ?? '').trim() || '名称'}
+        i18n={listRowI18nNav?.labelI18n ?? {}}
+        onSave={handleListRowI18nSave}
+        onCancel={closeListRowI18nModal}
+      />
     </div>
   )
 }

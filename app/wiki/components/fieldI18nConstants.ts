@@ -32,6 +32,16 @@ export async function mockTranslateFieldI18n(
     '描述':     { zh: '描述',     'zh-tw': '描述',      en: 'Description', ko: '설명',      ja: '説明',       es: 'Descripción', pt: 'Descrição' },
     '骑士':     { zh: '骑士',     'zh-tw': '騎士',      en: 'Knight',      ko: '기사',     ja: '騎士',       es: 'Caballero',   pt: 'Cavaleiro' },
     '法师':     { zh: '法师',     'zh-tw': '法師',      en: 'Mage',        ko: '마법사',    ja: '魔術師',     es: 'Mago',        pt: 'Mago' },
+    // Wiki 分类名称（管理页「名称」多语言）
+    '道具':     { zh: '道具',     'zh-tw': '道具',      en: 'Items',       ko: '아이템',    ja: 'アイテム',   es: 'Objetos',     pt: 'Itens' },
+    '怪物':     { zh: '怪物',     'zh-tw': '怪物',      en: 'Monsters',    ko: '몬스터',    ja: 'モンスター', es: 'Monstruos',   pt: 'Monstros' },
+    '卡片':     { zh: '卡片',     'zh-tw': '卡片',      en: 'Cards',       ko: '카드',      ja: 'カード',     es: 'Cartas',      pt: 'Cartas' },
+    '宠物':     { zh: '宠物',     'zh-tw': '寵物',      en: 'Pets',        ko: '펫',        ja: 'ペット',     es: 'Mascotas',    pt: 'Mascotes' },
+    '箱子':     { zh: '箱子',     'zh-tw': '箱子',      en: 'Boxes',       ko: '상자',      ja: '箱',         es: 'Cajas',       pt: 'Caixas' },
+    '箭矢制作': { zh: '箭矢制作', 'zh-tw': '箭矢製作',  en: 'Arrow Crafting', ko: '화살 제작', ja: '矢作り', es: 'Fabricación de flechas', pt: 'Fabricação de flechas' },
+    '套装':     { zh: '套装',     'zh-tw': '套裝',      en: 'Equipment Sets', ko: '세트', ja: 'セット', es: 'Conjuntos', pt: 'Conjuntos' },
+    '技能模拟': { zh: '技能模拟', 'zh-tw': '技能模擬',  en: 'Skill Simulator', ko: '스킬 시뮬', ja: 'スキルシミュ', es: 'Simulador de habilidades', pt: 'Simulador de habilidades' },
+    '地图':     { zh: '地图',     'zh-tw': '地圖',      en: 'Maps',        ko: '맵',        ja: 'マップ',     es: 'Mapas',       pt: 'Mapas' },
   }
   const result = mockMap[text] ?? {}
   const out: Partial<Record<LangCode, string>> = {}

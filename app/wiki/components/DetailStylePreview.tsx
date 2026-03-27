@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
+import { normalizeLinkedColumnKeys } from '../utils/linkedTableColumnOrder'
 
 export type DetailStyle = 'detail-1' | 'detail-2'
 
@@ -34,11 +35,22 @@ export interface RichTableSection {
   fieldKeys: string[]
 }
 
+/** 关联表格区域：列来自某「关联卡片」字段在「配置关联字段」中定义的子列 */
+export interface LinkedTableSection {
+  id: string
+  title: string
+  /** 父字段 WikiField.key（type 为 card-ref / card-ref-multi） */
+  sourceFieldKey: string
+  /** 选中的子列 fieldKey */
+  columnKeys: string[]
+}
+
 /** 详情样式1的完整配置 */
 export interface Detail1Config {
   mainTitle: string
   mainFieldKeys: string[]
   richTableSections: RichTableSection[]
+  linkedTableSections: LinkedTableSection[]
   sideTitle: string
   sideFieldKeys: string[]
 }
@@ -50,10 +62,30 @@ export interface Detail2Config {
   sideFieldKeys: string[]
 }
 
+interface CardRefCol {
+  fieldKey: string
+  label: string
+  type: string
+}
+
 interface WikiField {
   key: string
   label: string
   type: string
+  cardRefLinkedFields?: CardRefCol[]
+}
+
+/** 按用户勾选顺序（key 数组）排列字段，先勾选的列靠前 */
+function wikiFieldsInKeyOrder(fields: WikiField[], keyOrder: string[]): WikiField[] {
+  return keyOrder
+    .map((k) => fields.find((f) => f.key === k))
+    .filter((f): f is WikiField => f != null)
+}
+
+function cardRefColsInKeyOrder(linked: CardRefCol[], keyOrder: string[]): CardRefCol[] {
+  return keyOrder
+    .map((k) => linked.find((c) => c.fieldKey === k))
+    .filter((c): c is CardRefCol => c != null)
 }
 
 interface Props {
@@ -93,13 +125,26 @@ const getValue = (key: string): string => {
   return String(v)
 }
 
+/** 关联子表单元格 MOCK（按 fieldKey） */
+const MOCK_LINKED_CELL: Record<string, string> = {
+  id: '101',
+  star_level: '5',
+  star_cost: '同类卡×2',
+  amount: '12',
+  attr: '暴击 +3%',
+  drop_item: '红色药水',
+}
+function mockLinkedCell(fieldKey: string): string {
+  return MOCK_LINKED_CELL[fieldKey] ?? '—'
+}
+
 export default function DetailStylePreview({ style, fields, detail1Config, detail2Config }: Props) {
   // ── 详情样式 1 ──────────────────────────────────────────
   if (style === 'detail-1' && detail1Config) {
-    const mainFields = fields.filter(f => detail1Config.mainFieldKeys.includes(f.key))
+    const mainFields = wikiFieldsInKeyOrder(fields, detail1Config.mainFieldKeys)
     const imageField = mainFields.find(f => f.type === 'single-image' || f.type === 'image-group')
     const textFields = mainFields.filter(f => f.type !== 'single-image' && f.type !== 'image-group')
-    const sideFields = fields.filter(f => detail1Config.sideFieldKeys.includes(f.key))
+    const sideFields = wikiFieldsInKeyOrder(fields, detail1Config.sideFieldKeys)
 
     return (
       <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
@@ -137,7 +182,7 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
 
           {/* 模块二：富媒体表格区域 */}
           {detail1Config.richTableSections.map(section => {
-            const sectionFields = fields.filter(f => section.fieldKeys.includes(f.key))
+            const sectionFields = wikiFieldsInKeyOrder(fields, section.fieldKeys)
             return (
               <div key={section.id} style={{
                 border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden',
@@ -196,6 +241,84 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
               </div>
             )
           })}
+
+          {/* 模块三：关联表格（列来自「配置关联字段」） */}
+          {(detail1Config.linkedTableSections ?? []).map((section) => {
+            const parent = fields.find((f) => f.key === section.sourceFieldKey)
+            const linked = parent?.cardRefLinkedFields ?? []
+            const cols = cardRefColsInKeyOrder(linked, normalizeLinkedColumnKeys(section.columnKeys, linked))
+            return (
+              <div
+                key={section.id}
+                style={{
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  background: '#fff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                }}
+              >
+                <div
+                  style={{
+                    background: '#F3F4F6',
+                    padding: '8px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ width: 3, height: 14, background: '#D97706', borderRadius: 2 }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{section.title}</span>
+                </div>
+                {cols.length > 0 ? (
+                  <div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${cols.length}, 1fr)`,
+                        borderBottom: '1px solid #E5E7EB',
+                        background: '#FAFAFA',
+                      }}
+                    >
+                      {cols.map((c) => (
+                        <div
+                          key={c.fieldKey}
+                          style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, color: '#6B7280' }}
+                        >
+                          {c.label}
+                        </div>
+                      ))}
+                    </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${cols.length}, 1fr)`,
+                        padding: '0',
+                      }}
+                    >
+                      {cols.map((c) => (
+                        <div key={c.fieldKey} style={{ padding: '8px 12px', fontSize: 12, color: '#374151' }}>
+                          {c.type === 'card-ref' ? (
+                            <span style={{ color: '#1D4ED8', fontWeight: 500 }}>关联卡片</span>
+                          ) : c.type === 'number' ? (
+                            <span>{mockLinkedCell(c.fieldKey)}</span>
+                          ) : (
+                            <span>{mockLinkedCell(c.fieldKey)}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 14px', color: '#9CA3AF', fontSize: 12 }}>
+                    {!section.sourceFieldKey
+                      ? '请选择数据来源（关联卡片字段）'
+                      : '暂无列配置，请在左侧勾选子列'}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* 右侧侧边栏 */}
@@ -236,10 +359,10 @@ export default function DetailStylePreview({ style, fields, detail1Config, detai
 
   // ── 详情样式 2 ──────────────────────────────────────────
   if (style === 'detail-2' && detail2Config) {
-    const mainFields = fields.filter(f => detail2Config.mainFieldKeys.includes(f.key))
+    const mainFields = wikiFieldsInKeyOrder(fields, detail2Config.mainFieldKeys)
     const imageField = mainFields.find(f => f.type === 'single-image' || f.type === 'image-group')
     const textFields = mainFields.filter(f => f.type !== 'single-image' && f.type !== 'image-group')
-    const sideFields = fields.filter(f => detail2Config.sideFieldKeys.includes(f.key))
+    const sideFields = wikiFieldsInKeyOrder(fields, detail2Config.sideFieldKeys)
 
     const colFields = textFields.slice(0, 8)
     const leftFields = colFields.filter((_, i) => i % 2 === 0)

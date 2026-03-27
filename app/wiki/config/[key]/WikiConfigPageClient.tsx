@@ -5,12 +5,18 @@ import {
   Table, Button, Tag, Space, Input, Select, Modal, Form,
   Tooltip, Popconfirm, message, Checkbox, Drawer,
 } from 'antd'
-import { Plus, Edit2, Trash2, Languages } from 'lucide-react'
+import { Plus, Edit2, Trash2, Languages, Link2 } from 'lucide-react'
 import PageBreadcrumb from '../../../components/PageBreadcrumb'
 import FieldI18nModal, { type I18nLabels, LANGUAGES } from '../../components/FieldI18nModal'
 import FieldI18nEditor from '../../components/FieldI18nEditor'
 import ListStylePreview, { LIST_STYLES, type ListStyle } from '../../components/ListStylePreview'
-import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type Detail1Config, type Detail2Config, type RichTableSection } from '../../components/DetailStylePreview'
+import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type Detail1Config, type Detail2Config, type RichTableSection, type LinkedTableSection } from '../../components/DetailStylePreview'
+import {
+  getMandatoryLinkedColumnKeys,
+  isMandatoryLinkedSubColumn,
+  normalizeLinkedColumnKeys,
+  sortLinkedSubColsForDisplay,
+} from '../../utils/linkedTableColumnOrder'
 
 // ─────────────────────────────────────────────
 // Types
@@ -25,6 +31,86 @@ type FieldType =
   | 'select'         // 单选
   | 'card-ref'       // 关联卡片
   | 'card-ref-multi' // 关联卡片（可倍数）
+
+/** 关联卡片子表列：可配置英文字段 Key、显示名与类型（对应前台关联数据表格） */
+type CardRefLinkFieldType = 'text' | 'number' | 'rich-text' | 'card-ref'
+
+interface CardRefLinkedFieldConfig {
+  fieldKey: string
+  label: string
+  /** 显示名称多语言，主文案与 label（zh）同步 */
+  i18n?: I18nLabels
+  type: CardRefLinkFieldType
+}
+
+type CardRefLinkedFieldDraft = Omit<CardRefLinkedFieldConfig, 'i18n'> & {
+  rowId: string
+  i18n: I18nLabels
+}
+
+/** 图3：升星数据默认列（ID / 星级 / 升星消耗 / 数量 / 属性） */
+const DEFAULT_CARD_REF_LINKED_FIELDS: CardRefLinkedFieldConfig[] = [
+  { fieldKey: 'id', label: 'ID', i18n: { zh: 'ID', en: 'ID' }, type: 'number' },
+  { fieldKey: 'star_level', label: '星级', i18n: { zh: '星级', en: 'Star Level' }, type: 'number' },
+  { fieldKey: 'star_cost', label: '升星消耗', i18n: { zh: '升星消耗', en: 'Star Up Cost' }, type: 'card-ref' },
+  { fieldKey: 'amount', label: '数量', i18n: { zh: '数量', en: 'Amount' }, type: 'number' },
+  { fieldKey: 'attr', label: '属性', i18n: { zh: '属性', en: 'Attribute' }, type: 'text' },
+]
+
+/** 「掉落道具」关联子表默认列（图2：ID + 掉落道具） */
+const DEFAULT_DROP_ITEM_CARD_REF_FIELDS: CardRefLinkedFieldConfig[] = [
+  { fieldKey: 'id', label: 'ID', i18n: { zh: 'ID', en: 'ID' }, type: 'number' },
+  {
+    fieldKey: 'drop_item',
+    label: '掉落道具',
+    i18n: { zh: '掉落道具', en: 'Drop Item' },
+    type: 'card-ref',
+  },
+]
+
+const CARD_REF_LINK_TYPE_LABELS: Record<CardRefLinkFieldType, string> = {
+  text: '文本',
+  number: '数值',
+  'rich-text': '富文本',
+  'card-ref': '关联卡片',
+}
+
+const CARD_REF_LINK_TYPE_OPTIONS = (Object.entries(CARD_REF_LINK_TYPE_LABELS) as [CardRefLinkFieldType, string][]).map(
+  ([value, label]) => ({ value, label }),
+)
+
+const CARD_REF_SUBCOL_TAG: Record<CardRefLinkFieldType, string> = {
+  text: 'blue',
+  number: 'green',
+  'rich-text': 'cyan',
+  'card-ref': 'geekblue',
+}
+
+function cardRefConfigToDraft(rows: CardRefLinkedFieldConfig[] | undefined): CardRefLinkedFieldDraft[] {
+  const src = rows?.length ? rows : DEFAULT_CARD_REF_LINKED_FIELDS
+  return src.map((r, i) => {
+    const zh = (r.i18n?.zh ?? r.label).trim() || r.label
+    return {
+      rowId: `crf_${i}_${r.fieldKey}_${Math.random().toString(36).slice(2, 9)}`,
+      fieldKey: r.fieldKey,
+      label: zh,
+      type: r.type === 'text' && r.fieldKey === 'star_cost' ? 'card-ref' : r.type,
+      i18n: { ...(r.i18n || {}), zh },
+    }
+  })
+}
+
+function cardRefDraftToConfig(draft: CardRefLinkedFieldDraft[]): CardRefLinkedFieldConfig[] {
+  return draft.map(({ fieldKey, label, type, i18n }) => {
+    const zh = (i18n.zh ?? label).trim()
+    return {
+      fieldKey: fieldKey.trim(),
+      label: zh,
+      i18n: { ...i18n, zh },
+      type,
+    }
+  })
+}
 
 /** 单选字段下的枚举项（展示名以 i18n.zh 为主，与字段「显示名称」多语言一致） */
 interface WikiSelectOption {
@@ -62,6 +148,8 @@ interface WikiField {
   selectOptions?: WikiSelectOption[] // 仅 type === 'select' 时使用
   /** 关联卡片 / 关联卡片（可倍数）：指向的 Wiki 分类 key */
   cardRefWikiKey?: string
+  /** 关联卡片：子表字段 Key / 显示名 / 类型（如升星数据列） */
+  cardRefLinkedFields?: CardRefLinkedFieldConfig[]
 }
 
 const fieldTypeColors: Record<FieldType, string> = {
@@ -138,8 +226,8 @@ const FIELDS_BY_KEY: Record<string, WikiField[]> = {
     { key: 'description', label: '描述',     i18n: { zh: '描述',     en: 'Description' }, type: 'rich-text',    visible: false, listDisplay: false, sortable: false, filterable: false, required: false, order: 8 },
     {
       key: 'set_parts',
-      label: '套装组成',
-      i18n: { zh: '套装组成', en: 'Set Parts' },
+      label: '升星数据',
+      i18n: { zh: '升星数据', en: 'Star Upgrade Data' },
       type: 'card-ref',
       visible: true,
       listDisplay: true,
@@ -147,7 +235,22 @@ const FIELDS_BY_KEY: Record<string, WikiField[]> = {
       filterable: false,
       required: false,
       order: 9,
-      cardRefWikiKey: 'cards',
+      cardRefWikiKey: 'items',
+      cardRefLinkedFields: DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })),
+    },
+    {
+      key: 'drop_item',
+      label: '掉落道具',
+      i18n: { zh: '掉落道具', en: 'Drop Item', 'zh-tw': '掉落道具' },
+      type: 'card-ref',
+      visible: true,
+      listDisplay: true,
+      sortable: false,
+      filterable: false,
+      required: false,
+      order: 10,
+      cardRefWikiKey: 'items',
+      cardRefLinkedFields: DEFAULT_DROP_ITEM_CARD_REF_FIELDS.map((r) => ({ ...r })),
     },
   ],
   monsters: [
@@ -182,9 +285,18 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   const [editingField, setEditingField] = useState<WikiField | null>(null)
   const [fieldForm] = Form.useForm()
   const watchedType = Form.useWatch('type', fieldForm)
+  /** 字段弹窗内「显示名称」多语言草稿，保存字段时写入 WikiField.i18n */
+  const [pendingFieldLabelI18n, setPendingFieldLabelI18n] = useState<I18nLabels>({})
+  const [fieldFormLabelI18nModalOpen, setFieldFormLabelI18nModalOpen] = useState(false)
   // 单选选项列表（弹窗内独立管理，不走 Form）
   const [selectOptions, setSelectOptions] = useState<WikiSelectOption[]>([])
   const [optionInput, setOptionInput] = useState('')
+
+  const closeFieldModal = () => {
+    setFieldModalOpen(false)
+    setPendingFieldLabelI18n({})
+    setFieldFormLabelI18nModalOpen(false)
+  }
 
   const openAddFieldModal = () => {
     setEditingField(null)
@@ -192,6 +304,8 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     fieldForm.setFieldsValue({ type: 'text' })
     setSelectOptions([])
     setOptionInput('')
+    setPendingFieldLabelI18n({})
+    setFieldFormLabelI18nModalOpen(false)
     setFieldModalOpen(true)
   }
   const openEditFieldModal = (record: WikiField) => {
@@ -203,10 +317,30 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
           ? record.cardRefWikiKey ?? 'items'
           : undefined,
     })
+    setPendingFieldLabelI18n({
+      ...(record.i18n || {}),
+      zh: record.i18n?.zh ?? record.label,
+    })
+    setFieldFormLabelI18nModalOpen(false)
     setSelectOptions(normalizeSelectOptions(record.selectOptions))
     setOptionInput('')
     setFieldModalOpen(true)
   }
+
+  const openFieldFormLabelI18nModal = () => {
+    const zh = (fieldForm.getFieldValue('label') as string | undefined)?.trim() ?? ''
+    setPendingFieldLabelI18n((prev) => ({ ...prev, ...(zh ? { zh } : {}) }))
+    setFieldFormLabelI18nModalOpen(true)
+  }
+
+  const handleFieldFormLabelI18nSave = (i18n: I18nLabels) => {
+    const zh = (i18n.zh ?? '').trim()
+    setPendingFieldLabelI18n(i18n)
+    fieldForm.setFieldsValue({ label: zh || fieldForm.getFieldValue('label') })
+    setFieldFormLabelI18nModalOpen(false)
+    messageApi.success('多语言配置已保存')
+  }
+
   const handleFieldSave = () => {
     fieldForm.validateFields().then((raw) => {
       const values = { ...raw } as Record<string, unknown> & {
@@ -218,8 +352,11 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
       if (values.type !== 'card-ref' && values.type !== 'card-ref-multi') {
         delete values.cardRefWikiKey
       }
+      const labelZh = String(values.label ?? '').trim()
+      const nextI18n: I18nLabels = { ...pendingFieldLabelI18n, zh: labelZh }
       const defaults = { visible: true, listDisplay: true, sortable: false, filterable: false }
       const extra = values.type === 'select' ? { selectOptions } : {}
+      const isCardRef = values.type === 'card-ref' || values.type === 'card-ref-multi'
       if (editingField) {
         setFields((prev) =>
           prev.map((f) =>
@@ -228,6 +365,13 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                   ...f,
                   ...values,
                   required: editingField.required,
+                  label: labelZh || f.label,
+                  i18n: nextI18n,
+                  cardRefLinkedFields: isCardRef
+                    ? (Array.isArray(f.cardRefLinkedFields) && f.cardRefLinkedFields.length > 0
+                        ? f.cardRefLinkedFields
+                        : DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })))
+                    : undefined,
                   ...extra,
                 } as WikiField)
               : f,
@@ -240,20 +384,25 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
           return
         }
         const maxOrder = Math.max(...fields.map((f) => f.order), 0)
+        const cardRefInit = isCardRef
+          ? { cardRefLinkedFields: DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })) }
+          : {}
         setFields((prev) => [
           ...prev,
           {
             ...defaults,
             ...values,
             required: false,
+            label: labelZh,
+            i18n: nextI18n,
+            ...cardRefInit,
             ...extra,
-            i18n: { zh: values.label },
             order: maxOrder + 1,
           } as WikiField,
         ])
         messageApi.success('字段已新增')
       }
-      setFieldModalOpen(false)
+      closeFieldModal()
     })
   }
 
@@ -290,6 +439,226 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     messageApi.success('多语言配置已保存')
   }
 
+  // ── 关联卡片：子表字段 Key 配置 ─────────────────
+  const [cardRefLinkModalOpen, setCardRefLinkModalOpen] = useState(false)
+  const [cardRefLinkFieldKey, setCardRefLinkFieldKey] = useState<string | null>(null)
+  const [cardRefLinkSectionTitle, setCardRefLinkSectionTitle] = useState('')
+  const [cardRefLinkDraft, setCardRefLinkDraft] = useState<CardRefLinkedFieldDraft[]>([])
+  const [cardRefLinkNameI18nRowId, setCardRefLinkNameI18nRowId] = useState<string | null>(null)
+  const [cardRefLinkNameI18nDraft, setCardRefLinkNameI18nDraft] = useState<I18nLabels>({})
+
+  const openCardRefLinkModal = (record: WikiField) => {
+    setCardRefLinkFieldKey(record.key)
+    setCardRefLinkSectionTitle(record.label)
+    setCardRefLinkDraft(cardRefConfigToDraft(record.cardRefLinkedFields))
+    setCardRefLinkModalOpen(true)
+  }
+
+  const closeCardRefLinkModal = () => {
+    setCardRefLinkModalOpen(false)
+    setCardRefLinkFieldKey(null)
+    setCardRefLinkSectionTitle('')
+    setCardRefLinkDraft([])
+    setCardRefLinkNameI18nRowId(null)
+    setCardRefLinkNameI18nDraft({})
+  }
+
+  const openCardRefLinkNameI18n = (r: CardRefLinkedFieldDraft) => {
+    const zh = (r.i18n?.zh ?? r.label).trim()
+    setCardRefLinkNameI18nRowId(r.rowId)
+    setCardRefLinkNameI18nDraft({ ...r.i18n, zh })
+  }
+
+  const handleCardRefLinkNameI18nSave = (i18n: I18nLabels) => {
+    const zh = (i18n.zh ?? '').trim()
+    if (!cardRefLinkNameI18nRowId) return
+    setCardRefLinkDraft((prev) =>
+      prev.map((row) =>
+        row.rowId === cardRefLinkNameI18nRowId
+          ? { ...row, i18n, label: zh || row.label }
+          : row,
+      ),
+    )
+    setCardRefLinkNameI18nRowId(null)
+    setCardRefLinkNameI18nDraft({})
+    messageApi.success('多语言配置已保存')
+  }
+
+  const patchCardRefLinkRow = (rowId: string, patch: Partial<CardRefLinkedFieldDraft>) => {
+    setCardRefLinkDraft((prev) =>
+      prev.map((r) => {
+        if (r.rowId !== rowId) return r
+        const next = { ...r, ...patch }
+        if (patch.label !== undefined && patch.i18n === undefined) {
+          next.i18n = { ...r.i18n, zh: patch.label }
+        }
+        return next
+      }),
+    )
+  }
+
+  const addCardRefLinkRow = () => {
+    const rowId = `crf_new_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    setCardRefLinkDraft((prev) => [
+      ...prev,
+      { rowId, fieldKey: 'new_field', label: '新字段', i18n: { zh: '新字段' }, type: 'text' },
+    ])
+  }
+
+  const removeCardRefLinkRow = (rowId: string) => {
+    setCardRefLinkDraft((prev) => prev.filter((r) => r.rowId !== rowId))
+  }
+
+  const handleCardRefLinkSave = () => {
+    if (!cardRefLinkFieldKey) return
+    const keyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+    for (const r of cardRefLinkDraft) {
+      if (!r.fieldKey.trim()) {
+        messageApi.error('请填写所有行的字段 Key')
+        return
+      }
+      if (!keyPattern.test(r.fieldKey.trim())) {
+        messageApi.error(`字段 Key「${r.fieldKey}」格式无效，仅支持字母、数字、下划线且不能以数字开头`)
+        return
+      }
+      if (!r.label.trim()) {
+        messageApi.error('请填写所有行的显示名称')
+        return
+      }
+    }
+    const keys = cardRefLinkDraft.map((r) => r.fieldKey.trim())
+    if (new Set(keys).size !== keys.length) {
+      messageApi.error('字段 Key 不能重复')
+      return
+    }
+    const next = cardRefDraftToConfig(cardRefLinkDraft)
+    setFields((prev) =>
+      prev.map((f) => (f.key === cardRefLinkFieldKey ? { ...f, cardRefLinkedFields: next } : f)),
+    )
+    messageApi.success('关联字段配置已保存')
+    closeCardRefLinkModal()
+  }
+
+  const cardRefLinkColumns = [
+    {
+      title: '字段 Key',
+      key: 'fieldKey',
+      width: 160,
+      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
+        <Input
+          value={r.fieldKey}
+          onChange={(e) => patchCardRefLinkRow(r.rowId, { fieldKey: e.target.value })}
+          placeholder="如 star_level"
+          size="small"
+        />
+      ),
+    },
+    {
+      title: '显示名称',
+      key: 'label',
+      width: 280,
+      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 6,
+            minWidth: 0,
+          }}
+        >
+          <Input
+            value={r.label}
+            onChange={(e) => patchCardRefLinkRow(r.rowId, { label: e.target.value })}
+            placeholder="列标题（默认简体中文）"
+            size="small"
+            style={{ flex: '1 1 120px', minWidth: 0, maxWidth: '100%' }}
+          />
+          {/* 翻译按钮与语种标签强制同一行：内部不换行，语种过多时横向滚动 */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              flexWrap: 'nowrap',
+              flexShrink: 0,
+              maxWidth: '100%',
+            }}
+          >
+            <Tooltip title="配置多语言">
+              <Button
+                size="small"
+                type="text"
+                icon={<Languages size={12} />}
+                style={{ color: '#1677FF', padding: '0 4px', height: 20, flexShrink: 0 }}
+                onClick={() => openCardRefLinkNameI18n(r)}
+              />
+            </Tooltip>
+            <div
+              style={{
+                display: 'flex',
+                gap: 4,
+                flexWrap: 'nowrap',
+                overflowX: 'auto',
+                minWidth: 0,
+                maxWidth: 200,
+                paddingBottom: 2,
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {LANGUAGES.filter((l) => r.i18n?.[l.code]?.trim()).map((l) => (
+                <Tooltip key={l.code} title={`${l.label}: ${r.i18n[l.code]}`}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#6B7280',
+                      background: '#F3F4F6',
+                      padding: '1px 5px',
+                      borderRadius: 3,
+                      cursor: 'default',
+                      lineHeight: '18px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {l.code}
+                  </span>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '类型',
+      key: 'type',
+      width: 120,
+      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
+        <Select
+          size="small"
+          style={{ width: '100%' }}
+          value={r.type}
+          options={CARD_REF_LINK_TYPE_OPTIONS.map((o) => ({
+            value: o.value,
+            label: `${o.label}（${o.value}）`,
+          }))}
+          onChange={(v) => patchCardRefLinkRow(r.rowId, { type: v as CardRefLinkFieldType })}
+        />
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 88,
+      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
+        <Button type="text" size="small" danger icon={<Trash2 size={13} />} onClick={() => removeCardRefLinkRow(r.rowId)}>
+          删除
+        </Button>
+      ),
+    },
+  ]
+
   // ── 拖拽排序 ──────────────────────────────────
   const fieldDragIndex = useRef<number | null>(null)
   const fieldDragOverIndex = useRef<number | null>(null)
@@ -313,7 +682,14 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
 
   // ── 详情样式 ──────────────────────────────────
   const [selectedDetailStyle, setSelectedDetailStyle] = useState<DetailStyle>('detail-1')
-  const [detail1Config, setDetail1Config] = useState<Detail1Config>({ mainTitle: '基本信息', mainFieldKeys: [], richTableSections: [], sideTitle: '道具信息', sideFieldKeys: [] })
+  const [detail1Config, setDetail1Config] = useState<Detail1Config>({
+    mainTitle: '基本信息',
+    mainFieldKeys: [],
+    richTableSections: [],
+    linkedTableSections: [],
+    sideTitle: '道具信息',
+    sideFieldKeys: [],
+  })
   const [detail2Config, setDetail2Config] = useState<Detail2Config>({ mainFieldKeys: [], sideTitle: '道具信息', sideFieldKeys: [] })
 
   /** 路由 [key] 切换时同步字段模板（避免复用 Client 时仍显示上一分类的配置或空白） */
@@ -326,6 +702,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
       mainTitle: '基本信息',
       mainFieldKeys: [],
       richTableSections: [],
+      linkedTableSections: [],
       sideTitle: '道具信息',
       sideFieldKeys: [],
     })
@@ -338,6 +715,14 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     setOptionDrawerId(null)
     setI18nModalOpen(false)
     setI18nTarget(null)
+    setPendingFieldLabelI18n({})
+    setFieldFormLabelI18nModalOpen(false)
+    setCardRefLinkModalOpen(false)
+    setCardRefLinkFieldKey(null)
+    setCardRefLinkSectionTitle('')
+    setCardRefLinkDraft([])
+    setCardRefLinkNameI18nRowId(null)
+    setCardRefLinkNameI18nDraft({})
   }, [wikiKey])
 
   const addRichTableSection = () => {
@@ -348,6 +733,36 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   }
   const updateRichTableSection = (id: string, updates: Partial<RichTableSection>) => {
     setDetail1Config(prev => ({ ...prev, richTableSections: prev.richTableSections.map(s => s.id === id ? { ...s, ...updates } : s) }))
+  }
+
+  const cardRefParentFields = sortedFields.filter(
+    (f) => (f.type === 'card-ref' || f.type === 'card-ref-multi') && (f.cardRefLinkedFields?.length ?? 0) > 0,
+  )
+
+  const addLinkedTableSection = () => {
+    const first = cardRefParentFields[0]
+    const firstKey = first?.key ?? ''
+    const sub = first?.cardRefLinkedFields ?? []
+    const columnKeys = getMandatoryLinkedColumnKeys(sub)
+    setDetail1Config((prev) => ({
+      ...prev,
+      linkedTableSections: [
+        ...(prev.linkedTableSections ?? []),
+        { id: `lkts_${Date.now()}`, title: '新关联表格', sourceFieldKey: firstKey, columnKeys },
+      ],
+    }))
+  }
+  const removeLinkedTableSection = (id: string) => {
+    setDetail1Config((prev) => ({
+      ...prev,
+      linkedTableSections: (prev.linkedTableSections ?? []).filter((s) => s.id !== id),
+    }))
+  }
+  const updateLinkedTableSection = (id: string, updates: Partial<LinkedTableSection>) => {
+    setDetail1Config((prev) => ({
+      ...prev,
+      linkedTableSections: (prev.linkedTableSections ?? []).map((s) => (s.id === id ? { ...s, ...updates } : s)),
+    }))
   }
 
   // ── 字段表格列 ────────────────────────────────
@@ -392,7 +807,14 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     {
       title: '操作', key: 'action',
       render: (_: unknown, record: WikiField) => (
-        <Space size={4}>
+        <Space size={4} wrap>
+          {(record.type === 'card-ref' || record.type === 'card-ref-multi') && (
+            <Tooltip title="配置关联 Wiki 子表列的字段 Key 与类型">
+              <Button size="small" type="text" icon={<Link2 size={13} />} onClick={() => openCardRefLinkModal(record)}>
+                配置关联字段
+              </Button>
+            </Tooltip>
+          )}
           <Button size="small" type="text" icon={<Edit2 size={13} />} onClick={() => openEditFieldModal(record)}>编辑</Button>
           <Popconfirm title="确认删除该字段？" description="删除后前台将不再展示此字段数据。"
             onConfirm={() => handleDeleteField(record.key)} okText="删除" cancelText="取消" okButtonProps={{ danger: true }}>
@@ -600,7 +1022,95 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                         </div>}
                   </div>
                   <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>③ 侧边栏字段</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>③ 关联表格</span>
+                      <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addLinkedTableSection}>添加区域</Button>
+                    </div>
+                    {cardRefParentFields.length === 0 ? (
+                      <div style={{ color: '#9CA3AF', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
+                        暂无可用数据源：请先添加「关联卡片」类字段，并在「配置关联字段」中定义子列
+                      </div>
+                    ) : (detail1Config.linkedTableSections ?? []).length === 0 ? (
+                      <div style={{ color: '#9CA3AF', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
+                        暂无区域，点击「添加区域」
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {(detail1Config.linkedTableSections ?? []).map((section) => {
+                          const parent = sortedFields.find((f) => f.key === section.sourceFieldKey)
+                          const subCols = parent?.cardRefLinkedFields ?? []
+                          const columnKeysNorm = normalizeLinkedColumnKeys(section.columnKeys, subCols)
+                          return (
+                            <div key={section.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', background: '#fff' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                <Input
+                                  size="small"
+                                  value={section.title}
+                                  onChange={(e) => updateLinkedTableSection(section.id, { title: e.target.value })}
+                                  style={{ flex: 1 }}
+                                  prefix={<span style={{ color: '#9CA3AF', fontSize: 10 }}>标题</span>}
+                                />
+                                <Button size="small" type="text" danger icon={<Trash2 size={12} />} onClick={() => removeLinkedTableSection(section.id)} />
+                              </div>
+                              <div style={{ marginBottom: 8 }}>
+                                <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>数据来源（关联卡片字段）</div>
+                                <Select
+                                  size="small"
+                                  style={{ width: '100%' }}
+                                  value={section.sourceFieldKey || undefined}
+                                  placeholder="选择字段"
+                                  options={cardRefParentFields.map((f) => ({ value: f.key, label: `${f.label}（${f.key}）` }))}
+                                  onChange={(v) => {
+                                    const sub = sortedFields.find((f) => f.key === v)?.cardRefLinkedFields ?? []
+                                    updateLinkedTableSection(section.id, {
+                                      sourceFieldKey: v,
+                                      columnKeys: getMandatoryLinkedColumnKeys(sub),
+                                    })
+                                  }}
+                                />
+                              </div>
+                              {subCols.length === 0 ? (
+                                <div style={{ fontSize: 11, color: '#9CA3AF' }}>该字段尚未配置关联列</div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {sortLinkedSubColsForDisplay(subCols).map((col) => (
+                                    <div key={col.fieldKey} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <Checkbox
+                                        checked={
+                                          isMandatoryLinkedSubColumn(col)
+                                            ? true
+                                            : columnKeysNorm.includes(col.fieldKey)
+                                        }
+                                        disabled={isMandatoryLinkedSubColumn(col)}
+                                        onChange={(e) => {
+                                          if (isMandatoryLinkedSubColumn(col)) return
+                                          const current = normalizeLinkedColumnKeys(section.columnKeys, subCols)
+                                          const m = getMandatoryLinkedColumnKeys(subCols)
+                                          const mSet = new Set(m)
+                                          const optional = current.filter((k) => !mSet.has(k))
+                                          updateLinkedTableSection(section.id, {
+                                            columnKeys: e.target.checked
+                                              ? [...m, ...optional.filter((k) => k !== col.fieldKey), col.fieldKey]
+                                              : [...m, ...optional.filter((k) => k !== col.fieldKey)],
+                                          })
+                                        }}
+                                      />
+                                      <span style={{ fontSize: 12, color: '#374151' }}>{col.label}</span>
+                                      <Tag color={CARD_REF_SUBCOL_TAG[col.type]} style={{ fontSize: 10, padding: '0 3px' }}>
+                                        {CARD_REF_LINK_TYPE_LABELS[col.type] ?? col.type}
+                                      </Tag>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>④ 侧边栏字段</div>
                     <Input size="small" value={detail1Config.sideTitle} onChange={e => setDetail1Config(prev => ({ ...prev, sideTitle: e.target.value }))} placeholder="侧边栏标题" style={{ marginBottom: 8 }} prefix={<span style={{ color: '#9CA3AF', fontSize: 11 }}>标题</span>} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                       {sortedFields.filter(f => f.visible).map(f => {
@@ -621,7 +1131,10 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 10 }}>前端预览 <Tag color="orange" style={{ marginLeft: 8, fontSize: 11 }}>仅供参考</Tag></div>
                   <div style={{ padding: 16, background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, minHeight: 120 }}>
-                    {detail1Config.mainFieldKeys.length === 0 && detail1Config.sideFieldKeys.length === 0 && detail1Config.richTableSections.length === 0
+                    {detail1Config.mainFieldKeys.length === 0
+                      && detail1Config.sideFieldKeys.length === 0
+                      && detail1Config.richTableSections.length === 0
+                      && (detail1Config.linkedTableSections ?? []).length === 0
                       ? <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: '24px 0' }}>请在左侧配置字段</div>
                       : <DetailStylePreview style="detail-1" fields={sortedFields} detail1Config={detail1Config} />}
                   </div>
@@ -687,22 +1200,41 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
       <Modal
         title={editingField ? '编辑字段' : '新增字段'}
         open={fieldModalOpen}
-        onCancel={() => setFieldModalOpen(false)}
+        onCancel={closeFieldModal}
         width={640}
         footer={(
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button onClick={() => setFieldModalOpen(false)}>取消</Button>
+            <Button onClick={closeFieldModal}>取消</Button>
             <Button type="primary" onClick={() => handleFieldSave()}>保存</Button>
           </div>
         )}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={fieldForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="key" label="字段 Key" rules={[{ required: true, message: '请输入字段 Key' }, { pattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/, message: '只能包含字母、数字和下划线' }]}>
             <Input placeholder="如：attack_power" disabled={!!editingField} />
           </Form.Item>
-          <Form.Item name="label" label="显示名称" rules={[{ required: true, message: '请输入显示名称' }]}>
-            <Input placeholder="如：攻击力" />
+          <Form.Item label="显示名称" required style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <Form.Item name="label" noStyle rules={[{ required: true, message: '请输入显示名称' }]}>
+                <Input
+                  placeholder="如：攻击力（默认作为简体中文）"
+                  style={{ flex: 1 }}
+                  onChange={(e) => setPendingFieldLabelI18n((prev) => ({ ...prev, zh: e.target.value }))}
+                />
+              </Form.Item>
+              <Tooltip title="配置多语言">
+                <Button
+                  type="text"
+                  icon={<Languages size={16} />}
+                  style={{ color: '#1677FF', flexShrink: 0, marginTop: 4 }}
+                  onClick={openFieldFormLabelI18nModal}
+                />
+              </Tooltip>
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#9CA3AF' }}>
+              与 Wiki 分类编辑一致：可点击图标打开多语言弹窗，支持 AI 一键翻译。
+            </p>
           </Form.Item>
           <Form.Item name="type" label="字段类型" rules={[{ required: true }]}>
             <Select
@@ -810,7 +1342,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
             open
             onClose={() => setOptionDrawerId(null)}
             width={400}
-            destroyOnClose
+            destroyOnHidden
             styles={{ body: { paddingTop: 8 } }}
           >
             <FieldI18nEditor
@@ -834,6 +1366,74 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
           onCancel={() => setI18nModalOpen(false)}
         />
       )}
+
+      {/* 多语言弹窗（字段编辑弹窗内的显示名称） */}
+      <FieldI18nModal
+        open={fieldFormLabelI18nModalOpen}
+        fieldKey={editingField?.key || fieldForm.getFieldValue('key') || 'name'}
+        fieldLabel={(pendingFieldLabelI18n.zh ?? fieldForm.getFieldValue('label') ?? '').trim() || '显示名称'}
+        i18n={pendingFieldLabelI18n}
+        onSave={handleFieldFormLabelI18nSave}
+        onCancel={() => setFieldFormLabelI18nModalOpen(false)}
+      />
+
+      <FieldI18nModal
+        open={!!cardRefLinkNameI18nRowId}
+        fieldKey={cardRefLinkDraft.find((row) => row.rowId === cardRefLinkNameI18nRowId)?.fieldKey ?? 'name'}
+        fieldLabel={(cardRefLinkNameI18nDraft.zh ?? '').trim() || '显示名称'}
+        i18n={cardRefLinkNameI18nDraft}
+        onSave={handleCardRefLinkNameI18nSave}
+        onCancel={() => {
+          setCardRefLinkNameI18nRowId(null)
+          setCardRefLinkNameI18nDraft({})
+        }}
+      />
+
+      <Modal
+        title="配置关联字段"
+        open={cardRefLinkModalOpen}
+        onCancel={closeCardRefLinkModal}
+        width={880}
+        destroyOnHidden
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button icon={<Plus size={14} />} onClick={addCardRefLinkRow}>
+              新增列
+            </Button>
+            <Space>
+              <Button onClick={closeCardRefLinkModal}>取消</Button>
+              <Button type="primary" onClick={handleCardRefLinkSave}>
+                保存
+              </Button>
+            </Space>
+          </div>
+        )}
+      >
+        <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6B7280' }}>
+          为「关联卡片」定义子表列：英文字段 Key 将用于接口 / 前台数据绑定；显示名称、类型对应表格列头与展示方式。
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 12,
+            padding: '10px 12px',
+            background: '#F9FAFB',
+            borderLeft: '4px solid #D1D5DB',
+            borderRadius: 4,
+          }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{cardRefLinkSectionTitle || '升星数据'}</span>
+        </div>
+        <Table
+          size="small"
+          rowKey="rowId"
+          pagination={false}
+          dataSource={cardRefLinkDraft}
+          columns={cardRefLinkColumns}
+        />
+      </Modal>
     </div>
   )
 }
