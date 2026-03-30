@@ -1,123 +1,39 @@
 'use client'
 
-import React, { useEffect, useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
+import Link from 'next/link'
 import {
   Table, Button, Tag, Space, Input, Select, Modal, Form,
   Tooltip, Popconfirm, message, Checkbox, Drawer,
 } from 'antd'
-import { Plus, Edit2, Trash2, Languages, ChevronUp, ChevronDown, ExternalLink, Database } from 'lucide-react'
+import { Plus, Edit2, Trash2, Languages, ChevronUp, ChevronDown, Table2, X } from 'lucide-react'
 import PageBreadcrumb from '../../../components/PageBreadcrumb'
 import FieldI18nModal, { type I18nLabels, LANGUAGES } from '../../components/FieldI18nModal'
 import FieldI18nEditor from '../../components/FieldI18nEditor'
 import ListStylePreview, { LIST_STYLES, type ListStyle } from '../../components/ListStylePreview'
-import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type Detail1Config, type Detail2Config, type RichTableSection, type LinkedTableSection, type DetailMiddleSection } from '../../components/DetailStylePreview'
+import DetailStylePreview, { DETAIL_STYLES, type DetailStyle, type RichTableSection, type LinkedTableSection, type DetailMiddleSection } from '../../components/DetailStylePreview'
 import {
-  getMandatoryLinkedColumnKeys,
-  isMandatoryLinkedSubColumn,
-  normalizeLinkedColumnKeys,
-  sortLinkedSubColsForDisplay,
-} from '../../utils/linkedTableColumnOrder'
-
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
-type FieldType =
-  | 'text'           // 文本
-  | 'rich-text'      // 富文本
-  | 'number'         // 数值
-  | 'switch'         // 开关
-  | 'single-image'   // 单图
-  | 'image-group'    // 图片组
-  | 'select'         // 单选
-  | 'card-ref'       // 关联卡片
-  | 'card-ref-multi' // 关联卡片（可倍数）
-
-/** 关联卡片子表列：可配置英文字段 Key、显示名与类型（对应前台关联数据表格） */
-type CardRefLinkFieldType = 'text' | 'number' | 'rich-text' | 'card-ref'
-
-interface CardRefLinkedFieldConfig {
-  fieldKey: string
-  label: string
-  /** 显示名称多语言，主文案与 label（zh）同步 */
-  i18n?: I18nLabels
-  type: CardRefLinkFieldType
-}
-
-type CardRefLinkedFieldDraft = Omit<CardRefLinkedFieldConfig, 'i18n'> & {
-  rowId: string
-  i18n: I18nLabels
-}
-
-/** 图3：升星数据默认列（ID / 星级 / 升星消耗 / 数量 / 属性） */
-const DEFAULT_CARD_REF_LINKED_FIELDS: CardRefLinkedFieldConfig[] = [
-  { fieldKey: 'id', label: 'ID', i18n: { zh: 'ID', en: 'ID' }, type: 'number' },
-  { fieldKey: 'star_level', label: '星级', i18n: { zh: '星级', en: 'Star Level' }, type: 'number' },
-  { fieldKey: 'star_cost', label: '升星消耗', i18n: { zh: '升星消耗', en: 'Star Up Cost' }, type: 'card-ref' },
-  { fieldKey: 'amount', label: '数量', i18n: { zh: '数量', en: 'Amount' }, type: 'number' },
-  { fieldKey: 'attr', label: '属性', i18n: { zh: '属性', en: 'Attribute' }, type: 'text' },
-]
-
-/** 「掉落道具」关联子表默认列（图2：ID + 掉落道具） */
-const DEFAULT_DROP_ITEM_CARD_REF_FIELDS: CardRefLinkedFieldConfig[] = [
-  { fieldKey: 'id', label: 'ID', i18n: { zh: 'ID', en: 'ID' }, type: 'number' },
-  {
-    fieldKey: 'drop_item',
-    label: '掉落道具',
-    i18n: { zh: '掉落道具', en: 'Drop Item' },
-    type: 'card-ref',
-  },
-]
-
-const CARD_REF_LINK_TYPE_LABELS: Record<CardRefLinkFieldType, string> = {
-  text: '文本',
-  number: '数值',
-  'rich-text': '富文本',
-  'card-ref': '关联卡片',
-}
-
-const CARD_REF_LINK_TYPE_OPTIONS = (Object.entries(CARD_REF_LINK_TYPE_LABELS) as [CardRefLinkFieldType, string][]).map(
-  ([value, label]) => ({ value, label }),
-)
-
-const CARD_REF_SUBCOL_TAG: Record<CardRefLinkFieldType, string> = {
-  text: 'blue',
-  number: 'green',
-  'rich-text': 'cyan',
-  'card-ref': 'geekblue',
-}
-
-function cardRefConfigToDraft(rows: CardRefLinkedFieldConfig[] | undefined): CardRefLinkedFieldDraft[] {
-  const src = rows?.length ? rows : DEFAULT_CARD_REF_LINKED_FIELDS
-  return src.map((r, i) => {
-    const zh = (r.i18n?.zh ?? r.label).trim() || r.label
-    return {
-      rowId: `crf_${i}_${r.fieldKey}_${Math.random().toString(36).slice(2, 9)}`,
-      fieldKey: r.fieldKey,
-      label: zh,
-      type: r.type === 'text' && r.fieldKey === 'star_cost' ? 'card-ref' : r.type,
-      i18n: { ...(r.i18n || {}), zh },
-    }
-  })
-}
-
-function cardRefDraftToConfig(draft: CardRefLinkedFieldDraft[]): CardRefLinkedFieldConfig[] {
-  return draft.map(({ fieldKey, label, type, i18n }) => {
-    const zh = (i18n.zh ?? label).trim()
-    return {
-      fieldKey: fieldKey.trim(),
-      label: zh,
-      i18n: { ...i18n, zh },
-      type,
-    }
-  })
-}
-
-/** 单选字段下的枚举项（展示名以 i18n.zh 为主，与字段「显示名称」多语言一致） */
-interface WikiSelectOption {
-  id: string
-  i18n: I18nLabels
-}
+  normalizeLinkedTableColumnRefs,
+  linkedSectionHasColumns,
+  toggleLinkedLocalColumn,
+  appendLinkedRemoteColumn,
+  removeLinkedRemoteColumn,
+  resolveLinkedColumnMeta,
+} from '../../utils/linkedTableColumns'
+import { useWikiDetailStyleDraft } from './WikiDetailStyleDraft'
+import {
+  type FieldType,
+  type WikiField,
+  type WikiSelectOption,
+  DEFAULT_CARD_REF_LINKED_FIELDS,
+  fieldTypeColors,
+  fieldTypeLabels,
+  WIKI_META,
+  WIKI_RELATION_OPTIONS,
+  isCardRefFieldType,
+  filterRichTableFieldKeys,
+} from '../wikiFieldSeed'
+import { useWikiFieldsRegistry } from '../WikiFieldsRegistry'
 
 function normalizeSelectOptions(raw: unknown): WikiSelectOption[] {
   if (!raw || !Array.isArray(raw)) return []
@@ -135,158 +51,137 @@ function selectOptionLabel(opt: WikiSelectOption): string {
   return opt.i18n.zh?.trim() || LANGUAGES.map(l => opt.i18n[l.code]).find(Boolean) || '（未命名）'
 }
 
-interface WikiField {
-  key: string
-  label: string
-  i18n: I18nLabels
-  type: FieldType
-  visible: boolean
-  listDisplay: boolean
-  sortable: boolean
-  filterable: boolean
-  required: boolean
-  order: number
-  selectOptions?: WikiSelectOption[] // 仅 type === 'select' 时使用
-  /** 关联卡片 / 关联卡片（可倍数）：指向的 Wiki 分类 key */
-  cardRefWikiKey?: string
-  /** 关联卡片：子表字段 Key / 显示名 / 类型（如升星数据列） */
-  cardRefLinkedFields?: CardRefLinkedFieldConfig[]
-}
-
-const fieldTypeColors: Record<FieldType, string> = {
-  'text':           'blue',
-  'rich-text':      'cyan',
-  'number':         'green',
-  'switch':         'lime',
-  'single-image':   'purple',
-  'image-group':    'magenta',
-  'select':         'orange',
-  'card-ref':       'geekblue',
-  'card-ref-multi': 'volcano',
-}
-
-const fieldTypeLabels: Record<FieldType, string> = {
-  'text':           '文本',
-  'rich-text':      '富文本',
-  'number':         '数值',
-  'switch':         '开关',
-  'single-image':   '单图',
-  'image-group':    '图片组',
-  'select':         '单选',
-  'card-ref':       '关联卡片',
-  'card-ref-multi': '关联卡片（可倍数）',
-}
-
-// ─────────────────────────────────────────────
-// Wiki 分类元数据
-// ─────────────────────────────────────────────
-const WIKI_META: Record<string, { label: string }> = {
-  items:    { label: '道具' },
-  monsters: { label: '怪物' },
-  cards:    { label: '卡片' },
-  pets:     { label: '宠物' },
-  boxes:    { label: '箱子' },
-  arrows:   { label: '箭矢制作' },
-  sets:     { label: '套装' },
-  skills:   { label: '技能模拟' },
-  npcs:     { label: 'NPC' },
-  maps:     { label: '地图' },
-}
-
-/** 与 Wiki 管理列表顺序一致，供「关联关系」下拉使用 */
-const WIKI_CATEGORY_KEYS = [
-  'items',
-  'monsters',
-  'cards',
-  'pets',
-  'boxes',
-  'arrows',
-  'sets',
-  'skills',
-  'npcs',
-  'maps',
-] as const
-
-const WIKI_RELATION_OPTIONS = WIKI_CATEGORY_KEYS.filter((k) => WIKI_META[k]).map((k) => ({
-  value: k,
-  label: `${WIKI_META[k].label}（${k}）`,
-}))
-
-// ─────────────────────────────────────────────
-// 字段数据（按分类 key）
-// ─────────────────────────────────────────────
-const FIELDS_BY_KEY: Record<string, WikiField[]> = {
-  items: [
-    { key: 'icon',        label: '图标',     i18n: { zh: '图标',     en: 'Icon'        }, type: 'single-image', visible: true,  listDisplay: true,  sortable: false, filterable: false, required: true,  order: 1 },
-    { key: 'id',          label: 'ID',       i18n: { zh: 'ID',       en: 'ID'          }, type: 'number',       visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: true,  order: 2 },
-    { key: 'name',        label: '名称',     i18n: { zh: '名称',     en: 'Name'        }, type: 'text',         visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 3 },
-    { key: 'type',        label: '类型',     i18n: { zh: '类型',     en: 'Type'        }, type: 'select',       visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 4 },
-    { key: 'atk',         label: '攻击力',   i18n: { zh: '攻击力',   en: 'ATK'         }, type: 'number',       visible: true,  listDisplay: false, sortable: true,  filterable: false, required: false, order: 5 },
-    { key: 'def',         label: '防御力',   i18n: { zh: '防御力',   en: 'DEF'         }, type: 'number',       visible: true,  listDisplay: false, sortable: true,  filterable: false, required: false, order: 6 },
-    { key: 'job',         label: '职业限制', i18n: { zh: '职业限制', en: 'Job Limit'   }, type: 'select',       visible: true,  listDisplay: false, sortable: false, filterable: true,  required: false, order: 7 },
-    { key: 'description', label: '描述',     i18n: { zh: '描述',     en: 'Description' }, type: 'rich-text',    visible: false, listDisplay: false, sortable: false, filterable: false, required: false, order: 8 },
-    {
-      key: 'set_parts',
-      label: '升星数据',
-      i18n: { zh: '升星数据', en: 'Star Upgrade Data' },
-      type: 'card-ref',
-      visible: true,
-      listDisplay: true,
-      sortable: false,
-      filterable: false,
-      required: false,
-      order: 9,
-      cardRefWikiKey: 'items',
-      cardRefLinkedFields: DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })),
-    },
-    {
-      key: 'drop_item',
-      label: '掉落道具',
-      i18n: { zh: '掉落道具', en: 'Drop Item', 'zh-tw': '掉落道具' },
-      type: 'card-ref',
-      visible: true,
-      listDisplay: true,
-      sortable: false,
-      filterable: false,
-      required: false,
-      order: 10,
-      cardRefWikiKey: 'items',
-      cardRefLinkedFields: DEFAULT_DROP_ITEM_CARD_REF_FIELDS.map((r) => ({ ...r })),
-    },
-  ],
-  monsters: [
-    { key: 'icon',     label: '图标',     i18n: { zh: '图标',     en: 'Icon'     }, type: 'single-image', visible: true,  listDisplay: true,  sortable: false, filterable: false, required: true,  order: 1 },
-    { key: 'id',       label: 'ID',       i18n: { zh: 'ID',       en: 'ID'       }, type: 'number',       visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: true,  order: 2 },
-    { key: 'name',     label: '名称',     i18n: { zh: '名称',     en: 'Name'     }, type: 'text',         visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: true,  order: 3 },
-    { key: 'level',    label: '等级',     i18n: { zh: '等级',     en: 'Level'    }, type: 'number',       visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: true,  order: 4 },
-    { key: 'hp',       label: 'HP',       i18n: { zh: 'HP',       en: 'HP'       }, type: 'number',       visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: false, order: 5 },
-    { key: 'atk',      label: '攻击',     i18n: { zh: '攻击',     en: 'ATK'      }, type: 'number',       visible: true,  listDisplay: false, sortable: false, filterable: false, required: false, order: 6 },
-    { key: 'def',      label: '防御',     i18n: { zh: '防御',     en: 'DEF'      }, type: 'number',       visible: true,  listDisplay: false, sortable: true,  filterable: false, required: false, order: 7 },
-    { key: 'exp',      label: '基础经验', i18n: { zh: '基础经验', en: 'Base EXP' }, type: 'number',       visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: false, order: 8 },
-    { key: 'jexp',     label: '职业经验', i18n: { zh: '职业经验', en: 'Job EXP'  }, type: 'number',       visible: true,  listDisplay: true,  sortable: true,  filterable: false, required: false, order: 9 },
-    { key: 'element',  label: '属性',     i18n: { zh: '属性',     en: 'Element'  }, type: 'select',       visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: false, order: 10 },
-    { key: 'race',     label: '种族',     i18n: { zh: '种族',     en: 'Race'     }, type: 'select',       visible: true,  listDisplay: true,  sortable: false, filterable: true,  required: false, order: 11 },
-    { key: 'size',     label: '体型',     i18n: { zh: '体型',     en: 'Size'     }, type: 'select',       visible: true,  listDisplay: false, sortable: false, filterable: true,  required: false, order: 12 },
-    { key: 'location', label: '出没地点', i18n: { zh: '出没地点', en: 'Location' }, type: 'text',         visible: true,  listDisplay: false, sortable: false, filterable: false, required: false, order: 13 },
-  ],
-}
-
-const DEFAULT_FIELDS: WikiField[] = []
+/** 避免 `?? []` 每次渲染新数组，导致依赖 `fields` 的 effect 死循环或卡死 */
+const EMPTY_WIKI_FIELDS: WikiField[] = []
 
 export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
-  const router = useRouter()
   const meta = WIKI_META[wikiKey]
   const wikiLabel = meta?.label ?? wikiKey
 
+  const { fieldsByWiki, updateWiki, batchUpdate } = useWikiFieldsRegistry()
+  const {
+    selectedDetailStyle,
+    setSelectedDetailStyle,
+    detail1Config,
+    setDetail1Config,
+    detail2Config,
+    setDetail2Config,
+  } = useWikiDetailStyleDraft()
+  const fields = useMemo(
+    () => fieldsByWiki[wikiKey] ?? EMPTY_WIKI_FIELDS,
+    [fieldsByWiki, wikiKey],
+  )
+  const setFields = (updater: React.SetStateAction<WikiField[]>) => {
+    updateWiki(wikiKey, updater)
+  }
+
   const [messageApi, contextHolder] = message.useMessage()
-  const [fields, setFields] = useState<WikiField[]>(FIELDS_BY_KEY[wikiKey] ?? DEFAULT_FIELDS)
   const sortedFields = [...fields].sort((a, b) => a.order - b.order)
 
+  /** 普通表 / 主区域 / 侧边栏草稿里可能含关联字段 key：随字段定义同步剔除 */
+  useEffect(() => {
+    setDetail1Config((prev) => {
+      const nextMain = filterRichTableFieldKeys(prev.mainFieldKeys, fields)
+      const nextSide = filterRichTableFieldKeys(prev.sideFieldKeys, fields)
+      const nextSections = prev.middleSections.map((s) => {
+        if (s.kind !== 'rich-table') return s
+        const fk = filterRichTableFieldKeys(s.fieldKeys, fields)
+        if (fk.length === s.fieldKeys.length && fk.every((k, i) => k === s.fieldKeys[i])) return s
+        return { ...s, fieldKeys: fk }
+      })
+      const mainSame =
+        nextMain.length === prev.mainFieldKeys.length &&
+        nextMain.every((k, i) => k === prev.mainFieldKeys[i])
+      const sideSame =
+        nextSide.length === prev.sideFieldKeys.length &&
+        nextSide.every((k, i) => k === prev.sideFieldKeys[i])
+      const sectionsSame = nextSections.every((s, i) => s === prev.middleSections[i])
+      if (mainSame && sideSame && sectionsSame) return prev
+      return {
+        ...prev,
+        mainFieldKeys: nextMain,
+        sideFieldKeys: nextSide,
+        middleSections: nextSections,
+      }
+    })
+  }, [wikiKey, fields, setDetail1Config])
+
+  useEffect(() => {
+    setDetail2Config((prev) => {
+      const nextMain = filterRichTableFieldKeys(prev.mainFieldKeys, fields)
+      const nextSide = filterRichTableFieldKeys(prev.sideFieldKeys, fields)
+      const mainSame =
+        nextMain.length === prev.mainFieldKeys.length &&
+        nextMain.every((k, i) => k === prev.mainFieldKeys[i])
+      const sideSame =
+        nextSide.length === prev.sideFieldKeys.length &&
+        nextSide.every((k, i) => k === prev.sideFieldKeys[i])
+      if (mainSame && sideSame) return prev
+      return { ...prev, mainFieldKeys: nextMain, sideFieldKeys: nextSide }
+    })
+  }, [wikiKey, fields, setDetail2Config])
+
+  const relationTargetOptions = useMemo(
+    () => WIKI_RELATION_OPTIONS.filter((o) => o.value !== wikiKey),
+    [wikiKey],
+  )
+  /** 关联目标下拉：默认排除当前 Wiki；种子中自环字段需带上当前 Wiki 选项 */
+  const cardRefSelectOptions = useMemo(() => {
+    const seen = new Set(relationTargetOptions.map((o) => o.value))
+    const selfOpt = WIKI_RELATION_OPTIONS.find((o) => o.value === wikiKey)
+    if (selfOpt && !seen.has(selfOpt.value)) {
+      return [selfOpt, ...relationTargetOptions]
+    }
+    return relationTargetOptions
+  }, [wikiKey, relationTargetOptions])
+
+  /** 当前 Wiki 中「关联关系」字段所指向的目标 Wiki（用于关联表格里跨 Wiki 选列） */
+  const cardRefTargetWikiKeys = useMemo(() => {
+    const s = new Set<string>()
+    for (const f of sortedFields) {
+      if (!f.visible) continue
+      if ((f.type === 'card-ref' || f.type === 'card-ref-multi') && f.cardRefWikiKey) {
+        s.add(f.cardRefWikiKey)
+      }
+    }
+    return [...s].sort()
+  }, [sortedFields])
+
+  const linkedWikiFieldSelectOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = []
+    for (const wk of cardRefTargetWikiKeys) {
+      const rows = fieldsByWiki[wk] ?? []
+      const vis = [...rows].filter((x) => x.visible).sort((a, b) => a.order - b.order)
+      const wlabel = WIKI_META[wk]?.label ?? wk
+      for (const f of vis) {
+        opts.push({
+          value: `${wk}::${f.key}`,
+          label: `${wlabel} / ${f.label}`,
+        })
+      }
+    }
+    return opts
+  }, [cardRefTargetWikiKeys, fieldsByWiki])
+
   // ── 字段弹窗 ──────────────────────────────────
+  const [linkedRemotePickNonce, setLinkedRemotePickNonce] = useState<Record<string, number>>({})
+  /** 关联表格「跨 Wiki 添加列」：多目标时先选 Wiki 分类，再选字段 */
+  const [linkedPickTargetWiki, setLinkedPickTargetWiki] = useState<Record<string, string | undefined>>({})
   const [fieldModalOpen, setFieldModalOpen] = useState(false)
   const [editingField, setEditingField] = useState<WikiField | null>(null)
   const [fieldForm] = Form.useForm()
   const watchedType = Form.useWatch('type', fieldForm)
+  const watchedCardRefWikiKey = Form.useWatch('cardRefWikiKey', fieldForm)
+  const showMirrorBlock =
+    !!fieldModalOpen &&
+    (watchedType === 'card-ref' || watchedType === 'card-ref-multi') &&
+    !!watchedCardRefWikiKey &&
+    watchedCardRefWikiKey !== wikiKey &&
+    !editingField?.relationManagedByPairId
+
+  /** 弹窗打开后再写 Form，避免未挂载时 resetFields / 与 SSR 下 forceRender 水合不一致 */
+  const fieldModalIntentRef = useRef<{ kind: 'add' } | { kind: 'edit'; record: WikiField } | null>(null)
+
   /** 字段弹窗内「显示名称」多语言草稿，保存字段时写入 WikiField.i18n */
   const [pendingFieldLabelI18n, setPendingFieldLabelI18n] = useState<I18nLabels>({})
   const [fieldFormLabelI18nModalOpen, setFieldFormLabelI18nModalOpen] = useState(false)
@@ -302,8 +197,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
 
   const openAddFieldModal = () => {
     setEditingField(null)
-    fieldForm.resetFields()
-    fieldForm.setFieldsValue({ type: 'text' })
+    fieldModalIntentRef.current = { kind: 'add' }
     setSelectOptions([])
     setOptionInput('')
     setPendingFieldLabelI18n({})
@@ -312,13 +206,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   }
   const openEditFieldModal = (record: WikiField) => {
     setEditingField(record)
-    fieldForm.setFieldsValue({
-      ...record,
-      cardRefWikiKey:
-        record.type === 'card-ref' || record.type === 'card-ref-multi'
-          ? record.cardRefWikiKey ?? 'items'
-          : undefined,
-    })
+    fieldModalIntentRef.current = { kind: 'edit', record }
     setPendingFieldLabelI18n({
       ...(record.i18n || {}),
       zh: record.i18n?.zh ?? record.label,
@@ -327,6 +215,42 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     setSelectOptions(normalizeSelectOptions(record.selectOptions))
     setOptionInput('')
     setFieldModalOpen(true)
+  }
+
+  const handleFieldModalAfterOpenChange = (open: boolean) => {
+    if (!open) {
+      fieldModalIntentRef.current = null
+      return
+    }
+    const intent = fieldModalIntentRef.current
+    if (!intent) return
+
+    if (intent.kind === 'add') {
+      fieldForm.resetFields()
+      fieldForm.setFieldsValue({ type: 'text' })
+    } else {
+      const { record } = intent
+      const firstCrossTarget = relationTargetOptions[0]?.value
+      if (record.relationManagedByPairId) {
+        fieldForm.setFieldsValue({
+          key: record.key,
+          label: record.label,
+          type: record.type,
+          cardRefWikiKey: record.cardRefWikiKey,
+        })
+      } else {
+        fieldForm.setFieldsValue({
+          ...record,
+          cardRefWikiKey:
+            record.type === 'card-ref' || record.type === 'card-ref-multi'
+              ? record.cardRefWikiKey ?? firstCrossTarget ?? 'items'
+              : undefined,
+          mirrorFieldKey: record.relationMirror?.mirrorFieldKey,
+          mirrorLabel: record.relationMirror?.mirrorLabel,
+        })
+      }
+    }
+    fieldModalIntentRef.current = null
   }
 
   const openFieldFormLabelI18nModal = () => {
@@ -350,60 +274,176 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
         label: string
         type: FieldType
         cardRefWikiKey?: string
+        mirrorFieldKey?: string
+        mirrorLabel?: string
       }
+
+      if (
+        editingField?.relationManagedByPairId &&
+        editingField.relationSourceWikiKey &&
+        editingField.relationSourceFieldKey
+      ) {
+        const labelZh = String(values.label ?? '').trim()
+        const nextI18n: I18nLabels = { ...pendingFieldLabelI18n, zh: labelZh }
+        const pid = editingField.relationManagedByPairId
+        const srcWiki = editingField.relationSourceWikiKey
+        const srcFieldKey = editingField.relationSourceFieldKey
+        batchUpdate((draft) => {
+          draft[wikiKey] = (draft[wikiKey] ?? []).map((f) =>
+            f.key === editingField.key ? { ...f, label: labelZh, i18n: nextI18n } : f,
+          )
+          draft[srcWiki] = (draft[srcWiki] ?? []).map((f) =>
+            f.key === srcFieldKey && f.relationPairId === pid
+              ? {
+                  ...f,
+                  relationMirror: f.relationMirror
+                    ? { ...f.relationMirror, mirrorLabel: labelZh, mirrorI18n: nextI18n }
+                    : {
+                        mirrorFieldKey: editingField.key,
+                        mirrorLabel: labelZh,
+                        mirrorI18n: nextI18n,
+                      },
+                }
+              : f,
+          )
+        })
+        messageApi.success('字段已更新')
+        closeFieldModal()
+        return
+      }
+
       if (values.type !== 'card-ref' && values.type !== 'card-ref-multi') {
         delete values.cardRefWikiKey
       }
       const labelZh = String(values.label ?? '').trim()
       const nextI18n: I18nLabels = { ...pendingFieldLabelI18n, zh: labelZh }
       const defaults = { visible: true, listDisplay: true, sortable: false, filterable: false }
-      const extra = values.type === 'select' ? { selectOptions } : {}
       const isCardRef = values.type === 'card-ref' || values.type === 'card-ref-multi'
-      if (editingField) {
-        setFields((prev) =>
-          prev.map((f) =>
-            f.key === editingField.key
-              ? ({
-                  ...f,
-                  ...values,
-                  required: editingField.required,
-                  label: labelZh || f.label,
-                  i18n: nextI18n,
-                  cardRefLinkedFields: isCardRef
-                    ? (Array.isArray(f.cardRefLinkedFields) && f.cardRefLinkedFields.length > 0
-                        ? f.cardRefLinkedFields
-                        : DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })))
-                    : undefined,
-                  ...extra,
-                } as WikiField)
-              : f,
-          ),
-        )
-        messageApi.success('字段已更新')
-      } else {
-        if (fields.some((f) => f.key === values.key)) {
-          messageApi.error('字段 Key 已存在')
+      const targetKey = values.cardRefWikiKey
+      const crossWiki = !!(isCardRef && targetKey && targetKey !== wikiKey)
+
+      if (crossWiki) {
+        const mk = String(values.mirrorFieldKey ?? '').trim()
+        const ml = String(values.mirrorLabel ?? '').trim()
+        if (!mk || !ml) {
+          messageApi.error('请填写对方 Wiki 上的字段 Key 与显示名称')
           return
         }
-        const maxOrder = Math.max(...fields.map((f) => f.order), 0)
-        const cardRefInit = isCardRef
-          ? { cardRefLinkedFields: DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })) }
-          : {}
-        setFields((prev) => [
-          ...prev,
-          {
-            ...defaults,
-            ...values,
-            required: false,
-            label: labelZh,
-            i18n: nextI18n,
-            ...cardRefInit,
-            ...extra,
-            order: maxOrder + 1,
-          } as WikiField,
-        ])
-        messageApi.success('字段已新增')
+        const targetRows = fieldsByWiki[targetKey] ?? []
+        const pairId = editingField?.relationPairId
+        const keyConflict = targetRows.some((f) => {
+          if (f.key !== mk) return false
+          if (pairId && f.relationManagedByPairId === pairId) return false
+          return true
+        })
+        if (keyConflict) {
+          messageApi.error('对方 Wiki 已存在相同字段 Key')
+          return
+        }
       }
+
+      if (!editingField && fields.some((f) => f.key === values.key)) {
+        messageApi.error('字段 Key 已存在')
+        return
+      }
+
+      const newPairId = crossWiki ? (editingField?.relationPairId ?? crypto.randomUUID()) : undefined
+      const relationMirror =
+        crossWiki && targetKey
+          ? {
+              mirrorFieldKey: String(values.mirrorFieldKey ?? '').trim(),
+              mirrorLabel: String(values.mirrorLabel ?? '').trim(),
+              mirrorI18n: { zh: String(values.mirrorLabel ?? '').trim() },
+            }
+          : undefined
+
+      const oldPair = editingField?.relationPairId
+      const oldTarget = editingField?.cardRefWikiKey
+
+      const maxOrder = Math.max(0, ...fields.map((f) => f.order)) + 1
+
+      batchUpdate((draft) => {
+        if (oldPair && oldTarget && (!crossWiki || oldTarget !== targetKey)) {
+          draft[oldTarget] = (draft[oldTarget] ?? []).filter(
+            (f) => f.relationManagedByPairId !== oldPair,
+          )
+        }
+
+        const cur = draft[wikiKey] ?? []
+        const prevField = editingField
+
+        const sourceRow: WikiField = {
+          key: values.key,
+          label: labelZh,
+          i18n: nextI18n,
+          type: values.type,
+          visible: prevField?.visible ?? defaults.visible,
+          listDisplay: prevField?.listDisplay ?? defaults.listDisplay,
+          sortable: prevField?.sortable ?? defaults.sortable,
+          filterable: prevField?.filterable ?? defaults.filterable,
+          required: prevField?.required ?? false,
+          order: prevField?.order ?? maxOrder,
+          cardRefWikiKey: isCardRef ? targetKey : undefined,
+          cardRefLinkedFields: isCardRef
+            ? prevField &&
+              prevField.key === values.key &&
+              Array.isArray(prevField.cardRefLinkedFields) &&
+              prevField.cardRefLinkedFields.length > 0
+              ? prevField.cardRefLinkedFields
+              : DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r }))
+            : undefined,
+          selectOptions: values.type === 'select' ? selectOptions : undefined,
+          relationPairId: newPairId,
+          relationMirror: crossWiki ? relationMirror : undefined,
+          relationManagedByPairId: undefined,
+          relationSourceWikiKey: undefined,
+          relationSourceFieldKey: undefined,
+        }
+
+        if (prevField) {
+          draft[wikiKey] = cur.map((f) => (f.key === prevField.key ? sourceRow : f))
+        } else {
+          draft[wikiKey] = [...cur, sourceRow]
+        }
+
+        if (crossWiki && targetKey && newPairId && relationMirror) {
+          const ml = relationMirror.mirrorLabel
+          const mi18n = relationMirror.mirrorI18n ?? { zh: ml }
+          const mirrorRow: WikiField = {
+            key: relationMirror.mirrorFieldKey,
+            label: ml,
+            i18n: mi18n,
+            type: values.type,
+            visible: true,
+            listDisplay: true,
+            sortable: false,
+            filterable: false,
+            required: false,
+            order: Math.max(0, ...(draft[targetKey] ?? []).map((f) => f.order)) + 1,
+            cardRefWikiKey: wikiKey,
+            cardRefLinkedFields: DEFAULT_CARD_REF_LINKED_FIELDS.map((r) => ({ ...r })),
+            relationManagedByPairId: newPairId,
+            relationSourceWikiKey: wikiKey,
+            relationSourceFieldKey: values.key,
+          }
+          const trows = draft[targetKey] ?? []
+          const idx = trows.findIndex((f) => f.relationManagedByPairId === newPairId)
+          if (idx >= 0) {
+            const next = [...trows]
+            next[idx] = {
+              ...mirrorRow,
+              order: trows[idx]!.order,
+              cardRefLinkedFields:
+                trows[idx]!.cardRefLinkedFields?.length ? trows[idx]!.cardRefLinkedFields : mirrorRow.cardRefLinkedFields,
+            }
+            draft[targetKey] = next
+          } else {
+            draft[targetKey] = [...trows, mirrorRow]
+          }
+        }
+      })
+
+      messageApi.success(editingField ? '字段已更新' : '字段已新增')
       closeFieldModal()
     })
   }
@@ -425,8 +465,31 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   }
 
   const handleDeleteField = (key: string) => {
-    setFields(prev => prev.filter(f => f.key !== key))
-    setListFieldKeys(prev => prev.filter(k => k !== key))
+    const field = fields.find((f) => f.key === key)
+    if (field?.relationPairId) {
+      const tid = field.cardRefWikiKey
+      if (tid) {
+        batchUpdate((draft) => {
+          draft[tid] = (draft[tid] ?? []).filter(
+            (f) => f.relationManagedByPairId !== field.relationPairId,
+          )
+        })
+      }
+    }
+    if (field?.relationManagedByPairId && field.relationSourceWikiKey && field.relationSourceFieldKey) {
+      const srcWiki = field.relationSourceWikiKey
+      const srcKey = field.relationSourceFieldKey
+      const pid = field.relationManagedByPairId
+      batchUpdate((draft) => {
+        draft[srcWiki] = (draft[srcWiki] ?? []).map((f) =>
+          f.key === srcKey && f.relationPairId === pid
+            ? { ...f, relationPairId: undefined, relationMirror: undefined }
+            : f,
+        )
+      })
+    }
+    setFields((prev) => prev.filter((f) => f.key !== key))
+    setListFieldKeys((prev) => prev.filter((k) => k !== key))
     messageApi.success('字段已删除')
   }
 
@@ -440,226 +503,6 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     setI18nModalOpen(false)
     messageApi.success('多语言配置已保存')
   }
-
-  // ── 关联卡片：子表字段 Key 配置 ─────────────────
-  const [cardRefLinkModalOpen, setCardRefLinkModalOpen] = useState(false)
-  const [cardRefLinkFieldKey, setCardRefLinkFieldKey] = useState<string | null>(null)
-  const [cardRefLinkSectionTitle, setCardRefLinkSectionTitle] = useState('')
-  const [cardRefLinkDraft, setCardRefLinkDraft] = useState<CardRefLinkedFieldDraft[]>([])
-  const [cardRefLinkNameI18nRowId, setCardRefLinkNameI18nRowId] = useState<string | null>(null)
-  const [cardRefLinkNameI18nDraft, setCardRefLinkNameI18nDraft] = useState<I18nLabels>({})
-
-  const openCardRefLinkModal = (record: WikiField) => {
-    setCardRefLinkFieldKey(record.key)
-    setCardRefLinkSectionTitle(record.label)
-    setCardRefLinkDraft(cardRefConfigToDraft(record.cardRefLinkedFields))
-    setCardRefLinkModalOpen(true)
-  }
-
-  const closeCardRefLinkModal = () => {
-    setCardRefLinkModalOpen(false)
-    setCardRefLinkFieldKey(null)
-    setCardRefLinkSectionTitle('')
-    setCardRefLinkDraft([])
-    setCardRefLinkNameI18nRowId(null)
-    setCardRefLinkNameI18nDraft({})
-  }
-
-  const openCardRefLinkNameI18n = (r: CardRefLinkedFieldDraft) => {
-    const zh = (r.i18n?.zh ?? r.label).trim()
-    setCardRefLinkNameI18nRowId(r.rowId)
-    setCardRefLinkNameI18nDraft({ ...r.i18n, zh })
-  }
-
-  const handleCardRefLinkNameI18nSave = (i18n: I18nLabels) => {
-    const zh = (i18n.zh ?? '').trim()
-    if (!cardRefLinkNameI18nRowId) return
-    setCardRefLinkDraft((prev) =>
-      prev.map((row) =>
-        row.rowId === cardRefLinkNameI18nRowId
-          ? { ...row, i18n, label: zh || row.label }
-          : row,
-      ),
-    )
-    setCardRefLinkNameI18nRowId(null)
-    setCardRefLinkNameI18nDraft({})
-    messageApi.success('多语言配置已保存')
-  }
-
-  const patchCardRefLinkRow = (rowId: string, patch: Partial<CardRefLinkedFieldDraft>) => {
-    setCardRefLinkDraft((prev) =>
-      prev.map((r) => {
-        if (r.rowId !== rowId) return r
-        const next = { ...r, ...patch }
-        if (patch.label !== undefined && patch.i18n === undefined) {
-          next.i18n = { ...r.i18n, zh: patch.label }
-        }
-        return next
-      }),
-    )
-  }
-
-  const addCardRefLinkRow = () => {
-    const rowId = `crf_new_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    setCardRefLinkDraft((prev) => [
-      ...prev,
-      { rowId, fieldKey: 'new_field', label: '新字段', i18n: { zh: '新字段' }, type: 'text' },
-    ])
-  }
-
-  const removeCardRefLinkRow = (rowId: string) => {
-    setCardRefLinkDraft((prev) => prev.filter((r) => r.rowId !== rowId))
-  }
-
-  const handleCardRefLinkSave = () => {
-    if (!cardRefLinkFieldKey) return
-    const keyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/
-    for (const r of cardRefLinkDraft) {
-      if (!r.fieldKey.trim()) {
-        messageApi.error('请填写所有行的字段 Key')
-        return
-      }
-      if (!keyPattern.test(r.fieldKey.trim())) {
-        messageApi.error(`字段 Key「${r.fieldKey}」格式无效，仅支持字母、数字、下划线且不能以数字开头`)
-        return
-      }
-      if (!r.label.trim()) {
-        messageApi.error('请填写所有行的显示名称')
-        return
-      }
-    }
-    const keys = cardRefLinkDraft.map((r) => r.fieldKey.trim())
-    if (new Set(keys).size !== keys.length) {
-      messageApi.error('字段 Key 不能重复')
-      return
-    }
-    const next = cardRefDraftToConfig(cardRefLinkDraft)
-    setFields((prev) =>
-      prev.map((f) => (f.key === cardRefLinkFieldKey ? { ...f, cardRefLinkedFields: next } : f)),
-    )
-    messageApi.success('关联字段配置已保存')
-    closeCardRefLinkModal()
-  }
-
-  const cardRefLinkColumns = [
-    {
-      title: '字段 Key',
-      key: 'fieldKey',
-      width: 160,
-      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
-        <Input
-          value={r.fieldKey}
-          onChange={(e) => patchCardRefLinkRow(r.rowId, { fieldKey: e.target.value })}
-          placeholder="如 star_level"
-          size="small"
-        />
-      ),
-    },
-    {
-      title: '显示名称',
-      key: 'label',
-      width: 280,
-      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 6,
-            minWidth: 0,
-          }}
-        >
-          <Input
-            value={r.label}
-            onChange={(e) => patchCardRefLinkRow(r.rowId, { label: e.target.value })}
-            placeholder="列标题（默认简体中文）"
-            size="small"
-            style={{ flex: '1 1 120px', minWidth: 0, maxWidth: '100%' }}
-          />
-          {/* 翻译按钮与语种标签强制同一行：内部不换行，语种过多时横向滚动 */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              flexWrap: 'nowrap',
-              flexShrink: 0,
-              maxWidth: '100%',
-            }}
-          >
-            <Tooltip title="配置多语言">
-              <Button
-                size="small"
-                type="text"
-                icon={<Languages size={12} />}
-                style={{ color: '#1677FF', padding: '0 4px', height: 20, flexShrink: 0 }}
-                onClick={() => openCardRefLinkNameI18n(r)}
-              />
-            </Tooltip>
-            <div
-              style={{
-                display: 'flex',
-                gap: 4,
-                flexWrap: 'nowrap',
-                overflowX: 'auto',
-                minWidth: 0,
-                maxWidth: 200,
-                paddingBottom: 2,
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {LANGUAGES.filter((l) => r.i18n?.[l.code]?.trim()).map((l) => (
-                <Tooltip key={l.code} title={`${l.label}: ${r.i18n[l.code]}`}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: '#6B7280',
-                      background: '#F3F4F6',
-                      padding: '1px 5px',
-                      borderRadius: 3,
-                      cursor: 'default',
-                      lineHeight: '18px',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {l.code}
-                  </span>
-                </Tooltip>
-              ))}
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: '类型',
-      key: 'type',
-      width: 120,
-      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
-        <Select
-          size="small"
-          style={{ width: '100%' }}
-          value={r.type}
-          options={CARD_REF_LINK_TYPE_OPTIONS.map((o) => ({
-            value: o.value,
-            label: `${o.label}（${o.value}）`,
-          }))}
-          onChange={(v) => patchCardRefLinkRow(r.rowId, { type: v as CardRefLinkFieldType })}
-        />
-      ),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 88,
-      render: (_: unknown, r: CardRefLinkedFieldDraft) => (
-        <Button type="text" size="small" danger icon={<Trash2 size={13} />} onClick={() => removeCardRefLinkRow(r.rowId)}>
-          删除
-        </Button>
-      ),
-    },
-  ]
 
   // ── 拖拽排序 ──────────────────────────────────
   const fieldDragIndex = useRef<number | null>(null)
@@ -682,33 +525,13 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   const allowedFieldKeys = sortedFields.filter(f => f.visible && currentStyleConfig.allowedTypes.includes(f.type)).map(f => f.key)
   const validListFieldKeys = listFieldKeys.filter(k => allowedFieldKeys.includes(k))
 
-  // ── 详情样式 ──────────────────────────────────
-  const [selectedDetailStyle, setSelectedDetailStyle] = useState<DetailStyle>('detail-1')
-  const [detail1Config, setDetail1Config] = useState<Detail1Config>({
-    mainTitle: '基本信息',
-    mainFieldKeys: [],
-    middleSections: [],
-    sideTitle: '道具信息',
-    sideFieldKeys: [],
-  })
-  const [detail2Config, setDetail2Config] = useState<Detail2Config>({ mainFieldKeys: [], sideTitle: '道具信息', sideFieldKeys: [] })
-
-  /** 路由 [key] 切换时同步字段模板（避免复用 Client 时仍显示上一分类的配置或空白） */
+  /** 路由 [key] 切换时重置本页 UI 状态（字段列表来自 Registry；详情样式草稿由 WikiDetailStyleDraftProvider 重置） */
   useEffect(() => {
-    setFields(FIELDS_BY_KEY[wikiKey] ?? DEFAULT_FIELDS)
     setListFieldKeys([])
     setSelectedStyle('card-list')
-    setSelectedDetailStyle('detail-1')
-    setDetail1Config({
-      mainTitle: '基本信息',
-      mainFieldKeys: [],
-      middleSections: [],
-      sideTitle: '道具信息',
-      sideFieldKeys: [],
-    })
-    setDetail2Config({ mainFieldKeys: [], sideTitle: '道具信息', sideFieldKeys: [] })
     setFieldModalOpen(false)
     setEditingField(null)
+    fieldModalIntentRef.current = null
     fieldForm.resetFields()
     setSelectOptions([])
     setOptionInput('')
@@ -717,17 +540,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
     setI18nTarget(null)
     setPendingFieldLabelI18n({})
     setFieldFormLabelI18nModalOpen(false)
-    setCardRefLinkModalOpen(false)
-    setCardRefLinkFieldKey(null)
-    setCardRefLinkSectionTitle('')
-    setCardRefLinkDraft([])
-    setCardRefLinkNameI18nRowId(null)
-    setCardRefLinkNameI18nDraft({})
   }, [wikiKey])
-
-  const cardRefParentFields = sortedFields.filter(
-    (f) => (f.type === 'card-ref' || f.type === 'card-ref-multi') && (f.cardRefLinkedFields?.length ?? 0) > 0,
-  )
 
   const addRichMiddleSection = () => {
     const next: DetailMiddleSection = {
@@ -740,35 +553,36 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
   }
 
   const addLinkedMiddleSection = () => {
-    const first = cardRefParentFields[0]
-    const firstKey = first?.key ?? ''
-    const sub = first?.cardRefLinkedFields ?? []
-    const columnKeys = getMandatoryLinkedColumnKeys(sub)
     const next: DetailMiddleSection = {
       kind: 'linked-table',
       id: `lkts_${Date.now()}`,
       title: '新关联表格',
-      sourceFieldKey: firstKey,
-      columnKeys,
+      columnRefs: [],
     }
     setDetail1Config((prev) => ({ ...prev, middleSections: [...prev.middleSections, next] }))
   }
 
   const updateRichMiddleSection = (id: string, updates: Partial<RichTableSection>) => {
+    const list = fieldsByWiki[wikiKey] ?? []
     setDetail1Config((prev) => ({
       ...prev,
-      middleSections: prev.middleSections.map((s) =>
-        s.kind === 'rich-table' && s.id === id ? { ...s, ...updates } : s,
-      ),
+      middleSections: prev.middleSections.map((s) => {
+        if (s.kind !== 'rich-table' || s.id !== id) return s
+        const merged = { ...s, ...updates }
+        return { ...merged, fieldKeys: filterRichTableFieldKeys(merged.fieldKeys, list) }
+      }),
     }))
   }
 
   const updateLinkedMiddleSection = (id: string, updates: Partial<LinkedTableSection>) => {
     setDetail1Config((prev) => ({
       ...prev,
-      middleSections: prev.middleSections.map((s) =>
-        s.kind === 'linked-table' && s.id === id ? { ...s, ...updates } : s,
-      ),
+      middleSections: prev.middleSections.map((s) => {
+        if (s.kind !== 'linked-table' || s.id !== id) return s
+        const cur = s as { kind: 'linked-table' } & LinkedTableSection & { columnKeys?: string[] }
+        const { columnKeys: _drop, ...rest } = cur
+        return { ...rest, ...updates, kind: 'linked-table' as const, columnKeys: undefined }
+      }),
     }))
   }
 
@@ -836,27 +650,11 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
       title: '操作', key: 'action',
       render: (_: unknown, record: WikiField) => (
         <Space size={4} wrap>
-          {(record.type === 'card-ref' || record.type === 'card-ref-multi') && (
-            <>
-              <Tooltip title="配置关联 Wiki 子表列的字段 Key 与类型">
-                <Button size="small" type="link" icon={<ExternalLink size={13} />} onClick={() => openCardRefLinkModal(record)}>
-                  配置关联字段
-                </Button>
-              </Tooltip>
-              <Button
-                size="small"
-                type="link"
-                icon={<Database size={13} />}
-                onClick={() =>
-                  router.push(
-                    `/wiki/config/${wikiKey}/card-ref/${encodeURIComponent(record.key)}/data?label=${encodeURIComponent(record.label)}`,
-                  )
-                }
-              >
-                数据
-              </Button>
-            </>
-          )}
+          {record.relationManagedByPairId ? (
+            <Tooltip title="由对方 Wiki 关联配置自动生成，可改显示名称；删除将解除源字段上的双向关联">
+              <Tag color="default" style={{ fontSize: 11, margin: 0 }}>同步字段</Tag>
+            </Tooltip>
+          ) : null}
           <Button size="small" type="text" icon={<Edit2 size={13} />} onClick={() => openEditFieldModal(record)}>编辑</Button>
           <Popconfirm title="确认删除该字段？" description="删除后前台将不再展示此字段数据。"
             onConfirm={() => handleDeleteField(record.key)} okText="删除" cancelText="取消" okButtonProps={{ danger: true }}>
@@ -1019,14 +817,12 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                       <span style={{ color: '#9CA3AF', fontSize: 11, marginRight: 6 }}>标题</span><span style={{ color: '#374151', fontWeight: 500 }}>名称</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {sortedFields.filter(f => f.visible).map(f => {
-                        const allowed = ['single-image', 'text', 'rich-text', 'number'].includes(f.type)
+                      {sortedFields.filter(f => f.visible && !isCardRefFieldType(f.type)).map(f => {
                         const checked = detail1Config.mainFieldKeys.includes(f.key)
-                        const usedElsewhere = detail1Config.sideFieldKeys.includes(f.key)
                         return (
                           <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Checkbox checked={checked} disabled={!allowed || usedElsewhere} onChange={e => setDetail1Config(prev => ({ ...prev, mainFieldKeys: e.target.checked ? [...prev.mainFieldKeys, f.key] : prev.mainFieldKeys.filter(k => k !== f.key) }))} />
-                            <span style={{ fontSize: 12, color: allowed && !usedElsewhere ? '#374151' : '#9CA3AF' }}>{f.label}</span>
+                            <Checkbox checked={checked} onChange={e => setDetail1Config(prev => ({ ...prev, mainFieldKeys: e.target.checked ? [...prev.mainFieldKeys, f.key] : prev.mainFieldKeys.filter(k => k !== f.key) }))} />
+                            <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
                             <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
                           </div>
                         )
@@ -1035,31 +831,19 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                   </div>
                   <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, background: '#FAFAFA', padding: '12px 14px' }}>
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                        <div>
-                          <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>② 富媒体表格</span>
-                          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4, lineHeight: 1.45 }}>
-                            富媒体与关联表格为同一列表，可交叉排序；模块右侧 ↑↓ 调整顺序。
-                          </div>
-                        </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>② 普通表格</span>
                         <Space size={6} wrap>
-                          <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addRichMiddleSection}>富媒体表格</Button>
-                          <Tooltip title={cardRefParentFields.length === 0 ? '请先添加「关联卡片」字段并配置关联列' : undefined}>
-                            <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addLinkedMiddleSection} disabled={cardRefParentFields.length === 0}>
-                              关联表格
-                            </Button>
-                          </Tooltip>
+                          <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addRichMiddleSection}>普通表格</Button>
+                          <Button size="small" type="dashed" icon={<Plus size={12} />} onClick={addLinkedMiddleSection}>
+                            关联表格
+                          </Button>
                         </Space>
                       </div>
                     </div>
-                    {cardRefParentFields.length === 0 && (
-                      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>
-                        暂无关联表格数据源时，仅可添加富媒体表格；添加「关联卡片」字段后可插入关联表格模块。
-                      </div>
-                    )}
                     {detail1Config.middleSections.length === 0 ? (
                       <div style={{ color: '#9CA3AF', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
-                        暂无模块，点击「富媒体表格」或「关联表格」
+                        暂无模块，点击「普通表格」或「关联表格」
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1070,7 +854,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                               <div key={section.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', background: '#fff' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                                    <Tag color="blue" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>富媒体</Tag>
+                                    <Tag color="blue" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>普通表</Tag>
                                     <Input
                                       size="small"
                                       value={section.title}
@@ -1091,8 +875,30 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                                     <Button size="small" type="text" danger icon={<Trash2 size={12} />} onClick={() => removeMiddleSection(section.id)} />
                                   </div>
                                 </div>
+                                <div style={{ marginBottom: 8 }}>
+                                  <Tooltip title={section.fieldKeys.length === 0 ? '请先勾选至少一列后再管理行数据' : '在独立页面编辑本表格 MOCK 行数据'}>
+                                    <Link
+                                      href={`/wiki/config/${wikiKey}/detail-table/${encodeURIComponent(section.id)}`}
+                                      style={{ display: 'inline-flex' }}
+                                      aria-disabled={section.fieldKeys.length === 0}
+                                      onClick={(e) => {
+                                        if (section.fieldKeys.length === 0) e.preventDefault()
+                                      }}
+                                    >
+                                      <Button
+                                        size="small"
+                                        type="link"
+                                        icon={<Table2 size={13} />}
+                                        disabled={section.fieldKeys.length === 0}
+                                        style={{ padding: '0' }}
+                                      >
+                                        管理数据
+                                      </Button>
+                                    </Link>
+                                  </Tooltip>
+                                </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  {sortedFields.filter(f => f.visible && ['text', 'rich-text', 'number', 'single-image', 'image-group', 'card-ref', 'card-ref-multi'].includes(f.type)).map(f => {
+                                  {sortedFields.filter(f => f.visible && !isCardRefFieldType(f.type)).map(f => {
                                     const checked = section.fieldKeys.includes(f.key)
                                     return (
                                       <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1106,9 +912,6 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                               </div>
                             )
                           }
-                          const parent = sortedFields.find((f) => f.key === section.sourceFieldKey)
-                          const subCols = parent?.cardRefLinkedFields ?? []
-                          const columnKeysNorm = normalizeLinkedColumnKeys(section.columnKeys, subCols)
                           return (
                             <div key={section.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', background: '#fff' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -1135,56 +938,195 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                                 </div>
                               </div>
                               <div style={{ marginBottom: 8 }}>
-                                <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>数据来源（关联卡片字段）</div>
-                                <Select
-                                  size="small"
-                                  style={{ width: '100%' }}
-                                  value={section.sourceFieldKey || undefined}
-                                  placeholder="选择字段"
-                                  options={cardRefParentFields.map((f) => ({ value: f.key, label: `${f.label}（${f.key}）` }))}
-                                  onChange={(v) => {
-                                    const sub = sortedFields.find((f) => f.key === v)?.cardRefLinkedFields ?? []
-                                    updateLinkedMiddleSection(section.id, {
-                                      sourceFieldKey: v,
-                                      columnKeys: getMandatoryLinkedColumnKeys(sub),
-                                    })
-                                  }}
-                                />
+                                <Tooltip title={!linkedSectionHasColumns(section) ? '请先勾选至少一列或添加关联 Wiki 字段后再管理行数据' : '在独立页面编辑本表格 MOCK 行数据'}>
+                                  <Link
+                                    href={`/wiki/config/${wikiKey}/detail-table/${encodeURIComponent(section.id)}`}
+                                    style={{ display: 'inline-flex' }}
+                                    aria-disabled={!linkedSectionHasColumns(section)}
+                                    onClick={(e) => {
+                                      if (!linkedSectionHasColumns(section)) e.preventDefault()
+                                    }}
+                                  >
+                                    <Button
+                                      size="small"
+                                      type="link"
+                                      icon={<Table2 size={13} />}
+                                      disabled={!linkedSectionHasColumns(section)}
+                                      style={{ padding: '0' }}
+                                    >
+                                      管理数据
+                                    </Button>
+                                  </Link>
+                                </Tooltip>
                               </div>
-                              {subCols.length === 0 ? (
-                                <div style={{ fontSize: 11, color: '#9CA3AF' }}>该字段尚未配置关联列</div>
-                              ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  {sortLinkedSubColsForDisplay(subCols).map((col) => (
-                                    <div key={col.fieldKey} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {sortedFields.filter(f => f.visible).map(f => {
+                                  const refs = normalizeLinkedTableColumnRefs(section)
+                                  const checked = refs.some((r) => !r.wikiKey && r.fieldKey === f.key)
+                                  return (
+                                    <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                       <Checkbox
-                                        checked={
-                                          isMandatoryLinkedSubColumn(col)
-                                            ? true
-                                            : columnKeysNorm.includes(col.fieldKey)
-                                        }
-                                        disabled={isMandatoryLinkedSubColumn(col)}
+                                        checked={checked}
                                         onChange={(e) => {
-                                          if (isMandatoryLinkedSubColumn(col)) return
-                                          const current = normalizeLinkedColumnKeys(section.columnKeys, subCols)
-                                          const m = getMandatoryLinkedColumnKeys(subCols)
-                                          const mSet = new Set(m)
-                                          const optional = current.filter((k) => !mSet.has(k))
-                                          updateLinkedMiddleSection(section.id, {
-                                            columnKeys: e.target.checked
-                                              ? [...m, ...optional.filter((k) => k !== col.fieldKey), col.fieldKey]
-                                              : [...m, ...optional.filter((k) => k !== col.fieldKey)],
-                                          })
+                                          const next = toggleLinkedLocalColumn(refs, f.key, e.target.checked)
+                                          updateLinkedMiddleSection(section.id, { columnRefs: next })
                                         }}
                                       />
-                                      <span style={{ fontSize: 12, color: '#374151' }}>{col.label}</span>
-                                      <Tag color={CARD_REF_SUBCOL_TAG[col.type]} style={{ fontSize: 10, padding: '0 3px' }}>
-                                        {CARD_REF_LINK_TYPE_LABELS[col.type] ?? col.type}
-                                      </Tag>
+                                      <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
+                                      <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
                                     </div>
-                                  ))}
-                                </div>
-                              )}
+                                  )
+                                })}
+                              </div>
+                              {(() => {
+                                const refs = normalizeLinkedTableColumnRefs(section)
+                                const remoteList = refs.filter((r) => r.wikiKey && r.wikiKey !== wikiKey)
+                                return (
+                                  <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #E5E7EB' }}>
+                                    <div style={{ fontSize: 12, fontWeight: 500, color: '#374151', marginBottom: 6 }}>跨 Wiki 列</div>
+                                    {remoteList.length > 0 ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                                        {remoteList.map((ref) => {
+                                          const meta = resolveLinkedColumnMeta(wikiKey, ref, fieldsByWiki)
+                                          return (
+                                            <div
+                                              key={`${ref.wikiKey}:${ref.fieldKey}`}
+                                              style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', width: '100%' }}
+                                            >
+                                              <Checkbox
+                                                checked
+                                                onChange={(e) => {
+                                                  if (e.target.checked) return
+                                                  const r = normalizeLinkedTableColumnRefs(section)
+                                                  const next = removeLinkedRemoteColumn(r, ref.wikiKey!, ref.fieldKey)
+                                                  updateLinkedMiddleSection(section.id, { columnRefs: next })
+                                                }}
+                                              />
+                                              <span style={{ fontSize: 12, color: '#374151', flex: 1, minWidth: 0 }}>{meta.label}</span>
+                                              <Tag
+                                                color={fieldTypeColors[meta.type as FieldType]}
+                                                style={{ fontSize: 10, padding: '0 3px' }}
+                                              >
+                                                {fieldTypeLabels[meta.type as FieldType] ?? meta.type}
+                                              </Tag>
+                                              <Button
+                                                type="text"
+                                                size="small"
+                                                danger
+                                                icon={<X size={14} />}
+                                                aria-label="移除此列"
+                                                onClick={() => {
+                                                  const r = normalizeLinkedTableColumnRefs(section)
+                                                  const next = removeLinkedRemoteColumn(r, ref.wikiKey!, ref.fieldKey)
+                                                  updateLinkedMiddleSection(section.id, { columnRefs: next })
+                                                }}
+                                                style={{ flexShrink: 0, marginLeft: 'auto' }}
+                                              />
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 6 }}>暂无；可从下方下拉添加。</div>
+                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                      {cardRefTargetWikiKeys.length > 1 ? (
+                                        <Select
+                                          showSearch
+                                          allowClear
+                                          placeholder="先筛选 Wiki 分类（可搜索名称或 key）"
+                                          disabled={!cardRefTargetWikiKeys.length}
+                                          style={{ width: '100%' }}
+                                          value={linkedPickTargetWiki[section.id]}
+                                          options={cardRefTargetWikiKeys.map((wk) => ({
+                                            value: wk,
+                                            label: `${WIKI_META[wk]?.label ?? wk}（${wk}）`,
+                                          }))}
+                                          filterOption={(input, option) =>
+                                            String(option?.label ?? '')
+                                              .toLowerCase()
+                                              .includes(input.toLowerCase())
+                                          }
+                                          onChange={(v) => {
+                                            setLinkedPickTargetWiki((p) => ({
+                                              ...p,
+                                              [section.id]: (v as string) || undefined,
+                                            }))
+                                          }}
+                                        />
+                                      ) : null}
+                                      {(() => {
+                                        const effectiveWiki =
+                                          cardRefTargetWikiKeys.length === 1
+                                            ? cardRefTargetWikiKeys[0]
+                                            : linkedPickTargetWiki[section.id]
+                                        const wikiPrefix = effectiveWiki ? `${effectiveWiki}::` : ''
+                                        const fieldOpts = linkedWikiFieldSelectOptions.filter((opt) => {
+                                          if (effectiveWiki && !opt.value.startsWith(wikiPrefix)) return false
+                                          const i = opt.value.indexOf('::')
+                                          if (i <= 0) return true
+                                          const tw = opt.value.slice(0, i)
+                                          const fk = opt.value.slice(i + 2)
+                                          const resolvedWiki = (r: (typeof refs)[number]) => r.wikiKey ?? wikiKey
+                                          const taken = refs.some(
+                                            (r) => resolvedWiki(r) === tw && r.fieldKey === fk,
+                                          )
+                                          return !taken
+                                        })
+                                        const needPickWiki =
+                                          cardRefTargetWikiKeys.length > 1 && !effectiveWiki
+                                        return (
+                                          <Select
+                                            key={`linked-pick-${section.id}-${linkedRemotePickNonce[section.id] ?? 0}-${effectiveWiki ?? 'none'}`}
+                                            showSearch
+                                            allowClear
+                                            placeholder={
+                                              !cardRefTargetWikiKeys.length
+                                                ? '请先在字段表中添加「关联关系」并指向目标 Wiki'
+                                                : needPickWiki
+                                                  ? '请先在上面的下拉中选择 Wiki 分类'
+                                                  : '再搜索并选择要添加的字段…'
+                                            }
+                                            disabled={!cardRefTargetWikiKeys.length || needPickWiki}
+                                            style={{ width: '100%' }}
+                                            options={fieldOpts}
+                                            filterOption={(input, option) =>
+                                              String(option?.label ?? '')
+                                                .toLowerCase()
+                                                .includes(input.toLowerCase())
+                                            }
+                                            onChange={(value) => {
+                                              const raw =
+                                                typeof value === 'string'
+                                                  ? value
+                                                  : value &&
+                                                      typeof value === 'object' &&
+                                                      value !== null &&
+                                                      'value' in value
+                                                    ? String((value as { value: unknown }).value)
+                                                    : ''
+                                              if (!raw) return
+                                              const sep = '::'
+                                              const i = raw.indexOf(sep)
+                                              if (i <= 0) return
+                                              const tw = raw.slice(0, i)
+                                              const fk = raw.slice(i + sep.length)
+                                              if (!fk) return
+                                              const r = normalizeLinkedTableColumnRefs(section)
+                                              const next = appendLinkedRemoteColumn(r, wikiKey, tw, fk)
+                                              updateLinkedMiddleSection(section.id, { columnRefs: next })
+                                              setLinkedRemotePickNonce((p) => ({
+                                                ...p,
+                                                [section.id]: (p[section.id] ?? 0) + 1,
+                                              }))
+                                            }}
+                                          />
+                                        )
+                                      })()}
+                                    </div>
+                                  </div>
+                                )
+                              })()}
                             </div>
                           )
                         })}
@@ -1195,14 +1137,12 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>③ 侧边栏字段</div>
                     <Input size="small" value={detail1Config.sideTitle} onChange={e => setDetail1Config(prev => ({ ...prev, sideTitle: e.target.value }))} placeholder="侧边栏标题" style={{ marginBottom: 8 }} prefix={<span style={{ color: '#9CA3AF', fontSize: 11 }}>标题</span>} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {sortedFields.filter(f => f.visible).map(f => {
-                        const allowed = ['text', 'number', 'select', 'switch'].includes(f.type)
+                      {sortedFields.filter(f => f.visible && !isCardRefFieldType(f.type)).map(f => {
                         const checked = detail1Config.sideFieldKeys.includes(f.key)
-                        const usedInMain = detail1Config.mainFieldKeys.includes(f.key)
                         return (
                           <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Checkbox checked={checked} disabled={!allowed || usedInMain} onChange={e => setDetail1Config(prev => ({ ...prev, sideFieldKeys: e.target.checked ? [...prev.sideFieldKeys, f.key] : prev.sideFieldKeys.filter(k => k !== f.key) }))} />
-                            <span style={{ fontSize: 12, color: allowed && !usedInMain ? '#374151' : '#9CA3AF' }}>{f.label}</span>
+                            <Checkbox checked={checked} onChange={e => setDetail1Config(prev => ({ ...prev, sideFieldKeys: e.target.checked ? [...prev.sideFieldKeys, f.key] : prev.sideFieldKeys.filter(k => k !== f.key) }))} />
+                            <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
                             <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
                           </div>
                         )
@@ -1217,7 +1157,15 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                       && detail1Config.sideFieldKeys.length === 0
                       && detail1Config.middleSections.length === 0
                       ? <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: '24px 0' }}>请在左侧配置字段</div>
-                      : <DetailStylePreview style="detail-1" fields={sortedFields} detail1Config={detail1Config} />}
+                      : (
+                        <DetailStylePreview
+                          style="detail-1"
+                          fields={sortedFields}
+                          detail1Config={detail1Config}
+                          previewWikiKey={wikiKey}
+                          previewFieldsByWiki={fieldsByWiki}
+                        />
+                      )}
                   </div>
                 </div>
               </div>
@@ -1230,14 +1178,12 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                       <span style={{ color: '#9CA3AF', fontSize: 11, marginRight: 6 }}>标题</span><span style={{ color: '#374151', fontWeight: 500 }}>名称</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {sortedFields.filter(f => f.visible).map(f => {
-                        const allowed = ['single-image', 'text', 'rich-text', 'number', 'select'].includes(f.type)
+                      {sortedFields.filter(f => f.visible && !isCardRefFieldType(f.type)).map(f => {
                         const checked = detail2Config.mainFieldKeys.includes(f.key)
-                        const usedInSide = detail2Config.sideFieldKeys.includes(f.key)
                         return (
                           <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Checkbox checked={checked} disabled={!allowed || usedInSide} onChange={e => setDetail2Config(prev => ({ ...prev, mainFieldKeys: e.target.checked ? [...prev.mainFieldKeys, f.key] : prev.mainFieldKeys.filter(k => k !== f.key) }))} />
-                            <span style={{ fontSize: 12, color: allowed && !usedInSide ? '#374151' : '#9CA3AF' }}>{f.label}</span>
+                            <Checkbox checked={checked} onChange={e => setDetail2Config(prev => ({ ...prev, mainFieldKeys: e.target.checked ? [...prev.mainFieldKeys, f.key] : prev.mainFieldKeys.filter(k => k !== f.key) }))} />
+                            <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
                             <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
                           </div>
                         )
@@ -1248,14 +1194,12 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>侧边栏字段</div>
                     <Input size="small" value={detail2Config.sideTitle} onChange={e => setDetail2Config(prev => ({ ...prev, sideTitle: e.target.value }))} placeholder="侧边栏标题" style={{ marginBottom: 8 }} prefix={<span style={{ color: '#9CA3AF', fontSize: 11 }}>标题</span>} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {sortedFields.filter(f => f.visible).map(f => {
-                        const allowed = ['text', 'number', 'select', 'switch'].includes(f.type)
+                      {sortedFields.filter(f => f.visible && !isCardRefFieldType(f.type)).map(f => {
                         const checked = detail2Config.sideFieldKeys.includes(f.key)
-                        const usedInMain = detail2Config.mainFieldKeys.includes(f.key)
                         return (
                           <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Checkbox checked={checked} disabled={!allowed || usedInMain} onChange={e => setDetail2Config(prev => ({ ...prev, sideFieldKeys: e.target.checked ? [...prev.sideFieldKeys, f.key] : prev.sideFieldKeys.filter(k => k !== f.key) }))} />
-                            <span style={{ fontSize: 12, color: allowed && !usedInMain ? '#374151' : '#9CA3AF' }}>{f.label}</span>
+                            <Checkbox checked={checked} onChange={e => setDetail2Config(prev => ({ ...prev, sideFieldKeys: e.target.checked ? [...prev.sideFieldKeys, f.key] : prev.sideFieldKeys.filter(k => k !== f.key) }))} />
+                            <span style={{ fontSize: 12, color: '#374151' }}>{f.label}</span>
                             <Tag color={fieldTypeColors[f.type as FieldType]} style={{ fontSize: 10, padding: '0 3px' }}>{fieldTypeLabels[f.type as FieldType] ?? f.type}</Tag>
                           </div>
                         )
@@ -1277,19 +1221,20 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
         </div>
       </div>
 
-      {/* 新增 / 编辑字段 */}
+      {/* 新增 / 编辑字段；forceRender：避免 destroyOnHidden 时 Form 卸载导致 useForm/useWatch 报警 */}
       <Modal
         title={editingField ? '编辑字段' : '新增字段'}
         open={fieldModalOpen}
+        afterOpenChange={handleFieldModalAfterOpenChange}
         onCancel={closeFieldModal}
         width={640}
+        forceRender
         footer={(
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={closeFieldModal}>取消</Button>
             <Button type="primary" onClick={() => handleFieldSave()}>保存</Button>
           </div>
         )}
-        destroyOnHidden
       >
         <Form form={fieldForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="key" label="字段 Key" rules={[{ required: true, message: '请输入字段 Key' }, { pattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/, message: '只能包含字母、数字和下划线' }]}>
@@ -1319,6 +1264,7 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
           </Form.Item>
           <Form.Item name="type" label="字段类型" rules={[{ required: true }]}>
             <Select
+              disabled={!!editingField?.relationManagedByPairId}
               options={(Object.entries(fieldTypeLabels) as [FieldType, string][]).map(([value, label]) => ({
                 value,
                 label: `${label}（${value}）`,
@@ -1326,7 +1272,10 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
               onChange={(v: FieldType) => {
                 if (v === 'card-ref' || v === 'card-ref-multi') {
                   const k = fieldForm.getFieldValue('cardRefWikiKey') as string | undefined
-                  if (k == null || k === '') fieldForm.setFieldValue('cardRefWikiKey', 'items')
+                  if (k == null || k === '' || k === wikiKey) {
+                    const first = relationTargetOptions[0]?.value
+                    if (first) fieldForm.setFieldValue('cardRefWikiKey', first)
+                  }
                 }
               }}
             />
@@ -1335,16 +1284,63 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
           {(watchedType === 'card-ref' || watchedType === 'card-ref-multi') && (
             <Form.Item
               name="cardRefWikiKey"
-              label="关联关系"
+              label="关联目标"
               rules={[{ required: true, message: '请选择关联的 Wiki 分类' }]}
             >
               <Select
                 placeholder="选择 Wiki 分类"
-                options={WIKI_RELATION_OPTIONS}
+                options={cardRefSelectOptions}
+                disabled={!!editingField?.relationManagedByPairId}
                 showSearch
                 optionFilterProp="label"
               />
             </Form.Item>
+          )}
+
+          {showMirrorBlock && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: '12px 14px',
+                background: '#F9FAFB',
+                border: '1px solid #E5E7EB',
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 10 }}>
+                对方 Wiki（{WIKI_META[watchedCardRefWikiKey]?.label ?? watchedCardRefWikiKey}）上的反向字段
+              </div>
+              <Form.Item
+                name="mirrorFieldKey"
+                label="字段 Key"
+                rules={[
+                  { required: true, message: '请输入对方 Wiki 上的字段 Key' },
+                  { pattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/, message: '只能包含字母、数字和下划线' },
+                ]}
+              >
+                <Input placeholder="如：linked_items" />
+              </Form.Item>
+              <Form.Item
+                name="mirrorLabel"
+                label="显示名称"
+                rules={[{ required: true, message: '请输入对方 Wiki 上的显示名称' }]}
+              >
+                <Input placeholder="如：关联道具" />
+              </Form.Item>
+              <Form.Item label="字段类型">
+                <Input
+                  readOnly
+                  value={
+                    watchedType === 'card-ref-multi'
+                      ? `${fieldTypeLabels['card-ref-multi']}（card-ref-multi）`
+                      : `${fieldTypeLabels['card-ref']}（card-ref）`
+                  }
+                />
+              </Form.Item>
+              <Form.Item label="关联目标">
+                <Input readOnly value={`${WIKI_META[wikiKey]?.label ?? wikiKey}（${wikiKey}）`} />
+              </Form.Item>
+            </div>
           )}
 
           {/* 单选选项编辑区（仅 type === 'select' 时展示） */}
@@ -1458,60 +1454,6 @@ export default function WikiConfigPageClient({ wikiKey }: { wikiKey: string }) {
         onCancel={() => setFieldFormLabelI18nModalOpen(false)}
       />
 
-      <FieldI18nModal
-        open={!!cardRefLinkNameI18nRowId}
-        fieldKey={cardRefLinkDraft.find((row) => row.rowId === cardRefLinkNameI18nRowId)?.fieldKey ?? 'name'}
-        fieldLabel={(cardRefLinkNameI18nDraft.zh ?? '').trim() || '显示名称'}
-        i18n={cardRefLinkNameI18nDraft}
-        onSave={handleCardRefLinkNameI18nSave}
-        onCancel={() => {
-          setCardRefLinkNameI18nRowId(null)
-          setCardRefLinkNameI18nDraft({})
-        }}
-      />
-
-      <Modal
-        title="配置关联字段"
-        open={cardRefLinkModalOpen}
-        onCancel={closeCardRefLinkModal}
-        width={880}
-        destroyOnHidden
-        footer={(
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Button icon={<Plus size={14} />} onClick={addCardRefLinkRow}>
-              新增列
-            </Button>
-            <Space>
-              <Button onClick={closeCardRefLinkModal}>取消</Button>
-              <Button type="primary" onClick={handleCardRefLinkSave}>
-                保存
-              </Button>
-            </Space>
-          </div>
-        )}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginBottom: 12,
-            padding: '10px 12px',
-            background: '#F9FAFB',
-            borderLeft: '4px solid #D1D5DB',
-            borderRadius: 4,
-          }}
-        >
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{cardRefLinkSectionTitle || '升星数据'}</span>
-        </div>
-        <Table
-          size="small"
-          rowKey="rowId"
-          pagination={false}
-          dataSource={cardRefLinkDraft}
-          columns={cardRefLinkColumns}
-        />
-      </Modal>
     </div>
   )
 }

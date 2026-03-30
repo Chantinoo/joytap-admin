@@ -400,6 +400,7 @@ export default function WikiNPCsPage() {
       <Modal
         title={editingField ? '编辑字段' : '新增字段'}
         open={fieldModalOpen}
+        forceRender
         onOk={handleFieldSave}
         onCancel={() => setFieldModalOpen(false)}
         okText="保存"

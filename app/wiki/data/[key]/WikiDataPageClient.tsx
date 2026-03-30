@@ -420,6 +420,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
       <Modal
         title="新增条目"
         open={addOpen}
+        forceRender
         onOk={submitAdd}
         onCancel={() => {
           setAddOpen(false)

@@ -242,6 +242,7 @@ export default function CertifiedAccountsPage() {
       <Modal
         title="认证用户"
         open={certModalOpen}
+        forceRender
         onCancel={() => { setCertModalOpen(false); form.resetFields() }}
         onOk={handleCertConfirm}
         okText="确定"

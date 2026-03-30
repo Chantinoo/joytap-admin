@@ -30,7 +30,7 @@ interface WikiNav {
 // Nav data
 // ─────────────────────────────────────────────
 const initialNavs: WikiNav[] = [
-  { key: 'items',    label: '道具',     labelI18n: { zh: '道具',     en: 'Items',          'zh-tw': '道具' },     link: '/wiki/items',    enabled: true,  fieldCount: 10, order: 1 },
+  { key: 'items',    label: '道具',     labelI18n: { zh: '道具',     en: 'Items',          'zh-tw': '道具' },     link: '/wiki/items',    enabled: true,  fieldCount: 11, order: 1 },
   { key: 'monsters', label: '怪物',     labelI18n: { zh: '怪物',     en: 'Monsters',       'zh-tw': '怪物' },     link: '/wiki/monsters', enabled: true,  fieldCount: 13, order: 2 },
   { key: 'cards',    label: '卡片',     labelI18n: { zh: '卡片',     en: 'Cards',          'zh-tw': '卡片' },     link: '/wiki/cards',    enabled: true,  fieldCount: 8,  order: 3 },
   { key: 'pets',     label: '宠物',     labelI18n: { zh: '宠物',     en: 'Pets',           'zh-tw': '寵物' },     link: '/wiki/pets',     enabled: true,  fieldCount: 9,  order: 4 },
@@ -285,6 +285,7 @@ function WikiManageInner() {
       <Modal
         title={editingNav ? '编辑 Wiki 分类' : '新增 Wiki 分类'}
         open={navModalOpen}
+        forceRender
         onOk={handleNavSave}
         onCancel={() => { setNavModalOpen(false); setPendingNavLabelI18n({}) }}
         okText="保存"

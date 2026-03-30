@@ -219,6 +219,7 @@ export default function RebatePage() {
       <Modal
         title="创建返利码"
         open={createModalOpen}
+        forceRender
         onOk={handleCreate}
         onCancel={() => { setCreateModalOpen(false); form.resetFields() }}
         okText="创建"

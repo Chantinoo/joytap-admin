@@ -220,6 +220,7 @@ export default function CollectionPagesPage() {
       <Modal
         title="新建集合页"
         open={createOpen}
+        forceRender
         onCancel={() => { setCreateOpen(false); form.resetFields() }}
         onOk={handleCreate}
         okText="创建"

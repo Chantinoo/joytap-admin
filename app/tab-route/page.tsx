@@ -407,6 +407,7 @@ export default function TabRoutePage() {
       <Modal
         title={editingTab ? '编辑分区' : '新建分区'}
         open={modalOpen}
+        forceRender
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
         okText={editingTab ? '保存' : '创建'}
