@@ -2,13 +2,17 @@
 
 import React from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
-import { filterRichTableFieldKeys, type WikiField as SeedWikiField } from '../config/wikiFieldSeed'
+import { filterRichTableFieldKeys, WIKI_META, type WikiField as SeedWikiField } from '../config/wikiFieldSeed'
 import type { RichTableMockRow } from '../utils/richTableMockData'
+import { richTableCellDisplayValue } from '../utils/richTableMockData'
 import type { LinkedTableColumnRef } from '../utils/linkedTableColumns'
 import {
   normalizeLinkedTableColumnRefs,
   resolveLinkedColumnMeta,
+  LINKED_TABLE_TARGET_WIKI_FIELD_KEY,
 } from '../utils/linkedTableColumns'
+import { useWikiRelationsRegistry } from '../config/WikiRelationsRegistry'
+import { relationDisplayName } from '../config/wikiRelationDefinitions'
 
 export type { LinkedTableColumnRef }
 
@@ -47,10 +51,12 @@ export interface RichTableSection {
   mockRichRows?: RichTableMockRow[]
 }
 
-/** 关联表格区域：本 Wiki 字段 + 可追加关联目标 Wiki 的字段；MOCK 行与普通表相同结构（跨 Wiki 列键为 `wiki::fieldKey`） */
+/** 关联表格区域：有 relationKey 时列来自关联目标侧字段池；未选关联时兼容旧版跨 Wiki 列。MOCK 行列键跨 Wiki 时为 `wiki::fieldKey` */
 export interface LinkedTableSection {
   id: string
   title: string
+  /** 选用「Wiki 管理 → 关联关系」中的定义；有则目标侧列从定义的 fields 勾选 */
+  relationKey?: string
   columnRefs: LinkedTableColumnRef[]
   /** @deprecated 旧草稿仅有 columnKeys，读取时迁移为 columnRefs */
   columnKeys?: string[]
@@ -218,6 +224,8 @@ export default function DetailStylePreview({
   previewWikiKey,
   previewFieldsByWiki,
 }: Props) {
+  const { getRelation } = useWikiRelationsRegistry()
+
   // ── 详情样式 1 ──────────────────────────────────────────
   if (style === 'detail-1' && detail1Config) {
     const d1 = normalizeDetail1Config(detail1Config as Detail1Config & { richTableSections?: RichTableSection[]; linkedTableSections?: LinkedTableSection[] })
@@ -279,8 +287,21 @@ export default function DetailStylePreview({
                 : (() => {
                     const home = previewWikiKey ?? ''
                     const refs = normalizeLinkedTableColumnRefs(section)
+                    const rel =
+                      section.kind === 'linked-table' && section.relationKey
+                        ? getRelation(section.relationKey)
+                        : undefined
                     return refs.map((ref) => {
-                      const meta = resolveLinkedColumnMeta(home, ref, fieldsMap)
+                      const resolvedWiki = ref.wikiKey && ref.wikiKey !== home ? ref.wikiKey : home
+                      const useRelMeta =
+                        rel &&
+                        resolvedWiki === rel.targetSchemaId &&
+                        rel.fields?.length
+                      const meta = resolveLinkedColumnMeta(home, ref, fieldsMap, {
+                        relationFields: useRelMeta ? rel.fields : undefined,
+                        targetWikiKey: useRelMeta ? rel.targetSchemaId : undefined,
+                        relationDisplayLabel: rel ? relationDisplayName(rel) : undefined,
+                      })
                       const base = meta.field ?? {
                         key: ref.fieldKey,
                         label: meta.label,
@@ -297,7 +318,19 @@ export default function DetailStylePreview({
             const visibleRich = (section.mockRichRows ?? []).filter((r) => !r.hidden)
             const richCell = (f: WikiField, row: RichTableMockRow) => {
                 const mockKey = f.key.includes('::') ? (f.key.split('::').pop() ?? f.key) : f.key
-                const custom = row.cells[f.key]?.trim()
+                const textLike = f.type === 'text' || f.type === 'rich-text'
+                const custom = (
+                  textLike ? richTableCellDisplayValue(row, f.key) : (row.cells[f.key] ?? '')
+                ).trim()
+                if (mockKey === LINKED_TABLE_TARGET_WIKI_FIELD_KEY) {
+                  const picked = (row.cells[f.key] ?? '').trim()
+                  if (picked && WIKI_META[picked]) {
+                    return <span>{WIKI_META[picked].label}</span>
+                  }
+                  if (picked) return <span>{picked}</span>
+                  const twk = f.key.includes('::') ? (f.key.split('::')[0] ?? '') : (previewWikiKey ?? '')
+                  return <span>{(WIKI_META[twk]?.label ?? twk) || '—'}</span>
+                }
                 if (custom) {
                   if (f.type === 'number' && mockKey === 'drop_rate') {
                     return <span style={{ color: '#DC2626', fontWeight: 500 }}>{custom}</span>

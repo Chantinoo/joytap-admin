@@ -1,12 +1,19 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { Table, Button, Switch, Popconfirm, message, Input } from 'antd'
-import { Plus, Search } from 'lucide-react'
+import { Table, Button, Switch, Popconfirm, message, Input, Tooltip, Select } from 'antd'
+import { Plus, Search, Languages } from 'lucide-react'
 import type { RichTableMockRow } from '../utils/richTableMockData'
-import { emptyCellsForFieldKeys } from '../utils/richTableMockData'
+import { emptyCellsForFieldKeys, richTableCellSearchText } from '../utils/richTableMockData'
+import { LINKED_TABLE_TARGET_WIKI_COLUMN_TYPE } from '../utils/linkedTableColumns'
+import FieldI18nModal, { type I18nLabels } from './FieldI18nModal'
+import { WIKI_META, WIKI_RELATION_OPTIONS } from '../config/wikiFieldSeed'
 
 type ColField = { key: string; label: string; type: string }
+
+function isMockTextColumnType(t: string): boolean {
+  return t === 'text' || t === 'rich-text'
+}
 
 function padCells(row: RichTableMockRow, fieldKeys: string[]): RichTableMockRow {
   const cells = { ...row.cells }
@@ -29,6 +36,11 @@ export default function RichTableMockRowsEditor({
 }) {
   const [messageApi, contextHolder] = message.useMessage()
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [i18nModal, setI18nModal] = useState<{
+    rowKey: string
+    colKey: string
+    colLabel: string
+  } | null>(null)
 
   const paddedRows = useMemo(
     () => rows.map((r) => padCells(r, fieldKeys)),
@@ -39,34 +51,135 @@ export default function RichTableMockRowsEditor({
     const q = searchKeyword.trim().toLowerCase()
     if (!q) return paddedRows
     return paddedRows.filter((r) =>
-      fieldKeys.some((k) => (r.cells[k] ?? '').toLowerCase().includes(q)),
+      fieldKeys.some((k) => {
+        const meta = colFields.find((c) => c.key === k)
+        let blob = richTableCellSearchText(r, k)
+        if (meta?.type === LINKED_TABLE_TARGET_WIKI_COLUMN_TYPE) {
+          const wk = (r.cells[k] ?? '').trim()
+          if (wk && WIKI_META[wk]) blob += ` ${WIKI_META[wk].label}`
+        }
+        return blob.toLowerCase().includes(q)
+      }),
     )
-  }, [paddedRows, fieldKeys, searchKeyword])
+  }, [paddedRows, fieldKeys, searchKeyword, colFields])
 
   const setRows = (next: RichTableMockRow[]) => onChange(next.map((r) => padCells(r, fieldKeys)))
 
-  const updateCell = (rowKey: string, cellKey: string, value: string) => {
+  const updateCell = (rowKey: string, cellKey: string, value: string, opts?: { clearCellI18n?: boolean }) => {
     setRows(
-      paddedRows.map((r) =>
-        r.key === rowKey ? { ...r, cells: { ...r.cells, [cellKey]: value } } : r,
-      ),
+      paddedRows.map((r) => {
+        if (r.key !== rowKey) return r
+        const nextCells = { ...r.cells, [cellKey]: value }
+        if (opts?.clearCellI18n && r.cellI18n?.[cellKey]) {
+          const { [cellKey]: _drop, ...restI18n } = r.cellI18n
+          return {
+            ...r,
+            cells: nextCells,
+            cellI18n: Object.keys(restI18n).length > 0 ? restI18n : undefined,
+          }
+        }
+        if (!r.cellI18n?.[cellKey]) {
+          return { ...r, cells: nextCells }
+        }
+        return {
+          ...r,
+          cells: nextCells,
+          cellI18n: {
+            ...r.cellI18n,
+            [cellKey]: { ...r.cellI18n[cellKey], zh: value },
+          },
+        }
+      }),
     )
   }
 
+  const i18nModalRow = i18nModal
+    ? paddedRows.find((r) => r.key === i18nModal.rowKey)
+    : undefined
+  const i18nModalInitial: I18nLabels =
+    i18nModal && i18nModalRow
+      ? {
+          ...(i18nModalRow.cellI18n?.[i18nModal.colKey] ?? {}),
+          zh: i18nModalRow.cellI18n?.[i18nModal.colKey]?.zh ?? i18nModalRow.cells[i18nModal.colKey] ?? '',
+        }
+      : {}
+
+  const wikiSelectOptions = useMemo(
+    () => WIKI_RELATION_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    [],
+  )
+
   const dynamicColumns = fieldKeys.map((fk) => {
     const meta = colFields.find((c) => c.key === fk)
+    const textCol = meta ? isMockTextColumnType(meta.type) : false
+    const targetWikiCol = meta?.type === LINKED_TABLE_TARGET_WIKI_COLUMN_TYPE
     return {
       title: meta?.label ?? fk,
       key: fk,
       ellipsis: true,
-      render: (_: unknown, record: RichTableMockRow) => (
-        <Input
-          size="small"
-          value={record.cells[fk] ?? ''}
-          placeholder="MOCK 展示文案"
-          onChange={(e) => updateCell(record.key, fk, e.target.value)}
-        />
-      ),
+      render: (_: unknown, record: RichTableMockRow) => {
+        if (targetWikiCol) {
+          return (
+            <Select
+              size="small"
+              allowClear
+              showSearch
+              placeholder="选择目标 Wiki（MOCK）"
+              style={{ width: '100%', minWidth: 160 }}
+              options={wikiSelectOptions}
+              value={record.cells[fk] || undefined}
+              filterOption={(input, option) =>
+                String(option?.label ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase()) ||
+                String(option?.value ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              onChange={(v) =>
+                updateCell(record.key, fk, (v as string) ?? '', { clearCellI18n: true })
+              }
+            />
+          )
+        }
+        if (!textCol) {
+          return (
+            <Input
+              size="small"
+              value={record.cells[fk] ?? ''}
+              placeholder="MOCK 展示文案"
+              onChange={(e) => updateCell(record.key, fk, e.target.value)}
+            />
+          )
+        }
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+            <Input
+              size="small"
+              value={record.cells[fk] ?? ''}
+              placeholder="MOCK 展示文案（默认简体）"
+              style={{ flex: 1, minWidth: 0 }}
+              onChange={(e) => updateCell(record.key, fk, e.target.value)}
+            />
+            <Tooltip title="多语言配置">
+              <Button
+                type="text"
+                size="small"
+                icon={<Languages size={14} />}
+                aria-label="多语言"
+                style={{ color: '#1677FF', flexShrink: 0, padding: '0 4px' }}
+                onClick={() =>
+                  setI18nModal({
+                    rowKey: record.key,
+                    colKey: fk,
+                    colLabel: meta?.label ?? fk,
+                  })
+                }
+              />
+            </Tooltip>
+          </div>
+        )
+      },
     }
   })
 
@@ -151,6 +264,31 @@ export default function RichTableMockRowsEditor({
         pagination={false}
         scroll={{ x: 'max-content' }}
       />
+
+      {i18nModal ? (
+        <FieldI18nModal
+          open
+          fieldKey={i18nModal.colKey}
+          fieldLabel={i18nModal.colLabel}
+          i18n={i18nModalInitial}
+          onSave={(i18n) => {
+            const zh = (i18n.zh ?? '').trim()
+            setRows(
+              paddedRows.map((r) => {
+                if (r.key !== i18nModal.rowKey) return r
+                return {
+                  ...r,
+                  cells: { ...r.cells, [i18nModal.colKey]: zh || (r.cells[i18nModal.colKey] ?? '') },
+                  cellI18n: { ...r.cellI18n, [i18nModal.colKey]: i18n },
+                }
+              }),
+            )
+            setI18nModal(null)
+            messageApi.success('多语言已保存')
+          }}
+          onCancel={() => setI18nModal(null)}
+        />
+      ) : null}
     </div>
   )
 }

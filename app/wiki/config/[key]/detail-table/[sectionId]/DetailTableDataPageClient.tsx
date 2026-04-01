@@ -8,6 +8,7 @@ import RichTableMockRowsEditor from '../../../../components/RichTableMockRowsEdi
 import { useWikiDetailStyleDraft } from '../../WikiDetailStyleDraft'
 import type { LinkedTableSection, RichTableSection } from '../../../../components/DetailStylePreview'
 import { useWikiFieldsRegistry } from '../../../WikiFieldsRegistry'
+import { useWikiRelationsRegistry } from '../../../WikiRelationsRegistry'
 import { WIKI_META, filterRichTableFieldKeys } from '../../../wikiFieldSeed'
 import type { RichTableMockRow } from '../../../../utils/richTableMockData'
 import { buildInitialRichMockRows } from '../../../../utils/richTableMockData'
@@ -15,6 +16,7 @@ import {
   normalizeLinkedTableColumnRefs,
   resolveLinkedColumnMeta,
 } from '../../../../utils/linkedTableColumns'
+import { relationDisplayName } from '../../../wikiRelationDefinitions'
 
 export default function DetailTableDataPageClient({
   wikiKey,
@@ -26,6 +28,7 @@ export default function DetailTableDataPageClient({
   const wikiLabel = WIKI_META[wikiKey]?.label ?? wikiKey
   const { detail1Config, setDetail1Config } = useWikiDetailStyleDraft()
   const { fieldsByWiki } = useWikiFieldsRegistry()
+  const { getRelation } = useWikiRelationsRegistry()
   const sortedFields = useMemo(() => {
     const list = fieldsByWiki[wikiKey] ?? []
     return [...list].sort((a, b) => a.order - b.order)
@@ -72,10 +75,24 @@ export default function DetailTableDataPageClient({
 
   if (section.kind === 'rich-table' || section.kind === 'linked-table') {
     const linkedRefs = section.kind === 'linked-table' ? normalizeLinkedTableColumnRefs(section) : []
+    const rel =
+      section.kind === 'linked-table' && section.relationKey
+        ? getRelation(section.relationKey)
+        : undefined
     const fieldKeys =
       section.kind === 'rich-table'
         ? filterRichTableFieldKeys(section.fieldKeys, sortedFields)
-        : linkedRefs.map((ref) => resolveLinkedColumnMeta(wikiKey, ref, fieldsByWiki).cellKey)
+        : linkedRefs.map((ref) => {
+            const home = wikiKey
+            const resolvedWiki = ref.wikiKey && ref.wikiKey !== home ? ref.wikiKey : home
+            const useRelMeta =
+              rel && resolvedWiki === rel.targetSchemaId && rel.fields?.length
+            return resolveLinkedColumnMeta(home, ref, fieldsByWiki, {
+              relationFields: useRelMeta ? rel.fields : undefined,
+              targetWikiKey: useRelMeta ? rel.targetSchemaId : undefined,
+              relationDisplayLabel: rel ? relationDisplayName(rel) : undefined,
+            }).cellKey
+          })
     const colFields =
       section.kind === 'rich-table'
         ? fieldKeys.map((k) => {
@@ -83,7 +100,15 @@ export default function DetailTableDataPageClient({
             return { key: k, label: f?.label ?? k, type: f?.type ?? 'text' }
           })
         : linkedRefs.map((ref) => {
-            const meta = resolveLinkedColumnMeta(wikiKey, ref, fieldsByWiki)
+            const home = wikiKey
+            const resolvedWiki = ref.wikiKey && ref.wikiKey !== home ? ref.wikiKey : home
+            const useRelMeta =
+              rel && resolvedWiki === rel.targetSchemaId && rel.fields?.length
+            const meta = resolveLinkedColumnMeta(home, ref, fieldsByWiki, {
+              relationFields: useRelMeta ? rel.fields : undefined,
+              targetWikiKey: useRelMeta ? rel.targetSchemaId : undefined,
+              relationDisplayLabel: rel ? relationDisplayName(rel) : undefined,
+            })
             return { key: meta.cellKey, label: meta.label, type: meta.type }
           })
     const rows = section.mockRichRows ?? (fieldKeys.length > 0 ? buildInitialRichMockRows(fieldKeys) : [])

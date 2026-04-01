@@ -5,7 +5,7 @@ import {
   Table, Button, Tag, Space, Input, Modal, Form, Switch,
   Tooltip, Popconfirm, message,
 } from 'antd'
-import { Plus, Edit2, Trash2, ExternalLink, Database, Languages } from 'lucide-react'
+import { Plus, Edit2, Trash2, ExternalLink, Database, Languages, Link2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
@@ -235,13 +235,18 @@ function WikiManageInner() {
       <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <div>
             {/* 页头 */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>
                 管理该游戏的 Wiki 内容分类，每个分类对应一个独立的 Wiki 页面（如道具、怪物、卡片等）
               </p>
-              <Button type="primary" icon={<Plus size={14} />} style={{ borderRadius: 6 }} onClick={openAddNavModal}>
-                新增
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <Button icon={<Link2 size={14} />} style={{ borderRadius: 6 }} onClick={() => router.push('/wiki/relations')}>
+                  关联关系
+                </Button>
+                <Button type="primary" icon={<Plus size={14} />} style={{ borderRadius: 6 }} onClick={openAddNavModal}>
+                  新增
+                </Button>
+              </div>
             </div>
 
             {/* 统计卡片 */}
@@ -263,7 +268,7 @@ function WikiManageInner() {
             {/* 提示 */}
             <div style={{ padding: '12px 20px 0' }}>
               <div style={{ padding: '10px 14px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 6, fontSize: 13, color: '#92400E' }}>
-                💡 点击「配置」管理字段与展示样式；点击「数据」进入该 Wiki 的卡片数据列表（示例 MOCK）。
+                💡 点击「关联关系」维护全局卡片关联定义；「配置」管理字段与详情样式；「数据」进入该 Wiki 的卡片 MOCK 列表。
               </div>
             </div>
 
@@ -334,7 +339,10 @@ function WikiManageInner() {
       <FieldI18nModal
         open={navNameI18nModalOpen}
         fieldKey="name"
-        fieldLabel={(pendingNavLabelI18n.zh ?? navForm.getFieldValue('label') ?? '').trim() || '名称'}
+        fieldLabel={
+          (pendingNavLabelI18n.zh ?? (navModalOpen ? String(navForm.getFieldValue('label') ?? '') : '') ?? '').trim() ||
+          '名称'
+        }
         i18n={pendingNavLabelI18n}
         onSave={handleNavNameI18nSave}
         onCancel={() => setNavNameI18nModalOpen(false)}
