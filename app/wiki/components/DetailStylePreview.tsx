@@ -315,7 +315,7 @@ export default function DetailStylePreview({
                       } as WikiField
                     })
                   })()
-            const visibleRich = (section.mockRichRows ?? []).filter((r) => !r.hidden)
+            const visibleRich = section.mockRichRows ?? []
             const richCell = (f: WikiField, row: RichTableMockRow) => {
                 const mockKey = f.key.includes('::') ? (f.key.split('::').pop() ?? f.key) : f.key
                 const textLike = f.type === 'text' || f.type === 'rich-text'
@@ -414,7 +414,7 @@ export default function DetailStylePreview({
                     </div>
                   ) : (
                     (() => {
-                      const fallbackRow: RichTableMockRow = { key: '_fb', hidden: false, cells: {} }
+                      const fallbackRow: RichTableMockRow = { key: '_fb', cells: {} }
                       return (
                         <div>
                           <div style={{

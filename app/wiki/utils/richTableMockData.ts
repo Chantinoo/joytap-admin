@@ -4,7 +4,6 @@ import { LINKED_TABLE_TARGET_WIKI_FIELD_KEY } from './linkedTableColumns'
 /** MOCK：普通表格模块在子页中维护的行数据 */
 export interface RichTableMockRow {
   key: string
-  hidden: boolean
   /** 列 fieldKey → 展示文案（MOCK）；文本列通常与 cellI18n.zh 同步 */
   cells: Record<string, string>
   /** 文本类列的多语言（列 key 与 cells 一致） */
@@ -68,5 +67,5 @@ export function buildInitialRichMockRows(fieldKeys: string[]): RichTableMockRow[
                 ? '0.11%'
                 : '—'
   }
-  return [{ key: `rich_${Date.now()}`, hidden: false, cells }]
+  return [{ key: `rich_${Date.now()}`, cells }]
 }

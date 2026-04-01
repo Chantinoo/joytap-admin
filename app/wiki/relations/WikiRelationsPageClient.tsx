@@ -51,6 +51,9 @@ export default function WikiRelationsPageClient() {
   const [form] = Form.useForm()
   const [nameI18nModalOpen, setNameI18nModalOpen] = useState(false)
   const [pendingNameI18n, setPendingNameI18n] = useState<I18nLabels>({})
+  /** 可扩展字段「显示名称」多语言：Form.List 行下标 */
+  const [fieldLabelI18nModalIndex, setFieldLabelI18nModalIndex] = useState<number | null>(null)
+  const [pendingFieldLabelI18n, setPendingFieldLabelI18n] = useState<I18nLabels>({})
 
   const sorted = useMemo(
     () => [...relations].sort((a, b) => a.key.localeCompare(b.key)),
@@ -68,6 +71,7 @@ export default function WikiRelationsPageClient() {
       fields: blank.fields.map((f) => ({
         key: f.key,
         label: f.label,
+        labelI18n: { zh: f.label },
         type: f.type,
         selectOptions: f.selectOptions ? [...f.selectOptions] : [],
       })),
@@ -86,6 +90,10 @@ export default function WikiRelationsPageClient() {
       fields: r.fields.map((f) => ({
         key: f.key,
         label: f.label,
+        labelI18n:
+          f.labelI18n && Object.keys(f.labelI18n).length > 0
+            ? { ...f.labelI18n }
+            : { zh: f.label },
         type: f.type,
         selectOptions: f.selectOptions ? [...f.selectOptions] : [],
       })),
@@ -105,6 +113,23 @@ export default function WikiRelationsPageClient() {
     messageApi.success('多语言已保存')
   }
 
+  const openFieldLabelI18nModal = (fieldIndex: number) => {
+    const lab = (form.getFieldValue(['fields', fieldIndex, 'label']) as string | undefined)?.trim() ?? ''
+    const li = form.getFieldValue(['fields', fieldIndex, 'labelI18n']) as I18nLabels | undefined
+    setPendingFieldLabelI18n({ ...(li || {}), ...(lab ? { zh: lab } : {}) })
+    setFieldLabelI18nModalIndex(fieldIndex)
+  }
+
+  const handleFieldLabelI18nSave = (i18n: I18nLabels) => {
+    if (fieldLabelI18nModalIndex === null) return
+    const idx = fieldLabelI18nModalIndex
+    const zh = (i18n.zh ?? '').trim()
+    form.setFieldValue(['fields', idx, 'labelI18n'], i18n)
+    form.setFieldValue(['fields', idx, 'label'], zh || (form.getFieldValue(['fields', idx, 'label']) as string) || '')
+    setFieldLabelI18nModalIndex(null)
+    messageApi.success('字段名称多语言已保存')
+  }
+
   const handleSave = async () => {
     try {
       const v = await form.validateFields()
@@ -118,6 +143,7 @@ export default function WikiRelationsPageClient() {
       const rawRows = (v.fields ?? []) as {
         key: string
         label: string
+        labelI18n?: I18nLabels
         type: WikiRelationFieldType
         selectOptions?: WikiRelationSelectOption[]
       }[]
@@ -138,6 +164,10 @@ export default function WikiRelationsPageClient() {
       for (const row of rawRows) {
         const k = String(row.key ?? '').trim()
         const label = String(row.label ?? '').trim()
+        const mergedLabelI18n: I18nLabels = {
+          ...(row.labelI18n && typeof row.labelI18n === 'object' ? row.labelI18n : {}),
+          zh: label || (row.labelI18n?.zh ?? ''),
+        }
         const type = row.type
         if (type === 'select') {
           const rawOpts = Array.isArray(row.selectOptions) ? row.selectOptions : []
@@ -169,7 +199,7 @@ export default function WikiRelationsPageClient() {
           fields.push({
             key: k,
             label,
-            labelI18n: { zh: label },
+            labelI18n: mergedLabelI18n,
             type,
             selectOptions,
           })
@@ -177,7 +207,7 @@ export default function WikiRelationsPageClient() {
           fields.push({
             key: k,
             label,
-            labelI18n: { zh: label },
+            labelI18n: mergedLabelI18n,
             type,
           })
         }
@@ -189,8 +219,8 @@ export default function WikiRelationsPageClient() {
       const row: WikiRelationDefinition = {
         key: relKey,
         nameI18n,
-        sourceSchemaId: v.sourceSchemaId,
-        targetSchemaId: v.targetSchemaId,
+        sourceSchemaId: editing ? editing.sourceSchemaId : v.sourceSchemaId,
+        targetSchemaId: editing ? editing.targetSchemaId : v.targetSchemaId,
         fields,
       }
       if (editing) {
@@ -210,6 +240,7 @@ export default function WikiRelationsPageClient() {
       }
       setModalOpen(false)
       setPendingNameI18n({})
+      setFieldLabelI18nModalIndex(null)
     } catch {
       /* validateFields */
     }
@@ -334,6 +365,7 @@ export default function WikiRelationsPageClient() {
         onCancel={() => {
           setModalOpen(false)
           setPendingNameI18n({})
+          setFieldLabelI18nModalIndex(null)
         }}
         width={760}
         forceRender
@@ -376,10 +408,20 @@ export default function WikiRelationsPageClient() {
             </div>
           </Form.Item>
           <Form.Item name="sourceSchemaId" label="源Wiki" rules={[{ required: true }]}>
-            <Select showSearch optionFilterProp="label" options={SCHEMA_ID_SELECT_OPTIONS} />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={SCHEMA_ID_SELECT_OPTIONS}
+              disabled={!!editing}
+            />
           </Form.Item>
           <Form.Item name="targetSchemaId" label="目标Wiki" rules={[{ required: true }]}>
-            <Select showSearch optionFilterProp="label" options={SCHEMA_ID_SELECT_OPTIONS} />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={SCHEMA_ID_SELECT_OPTIONS}
+              disabled={!!editing}
+            />
           </Form.Item>
 
           <div style={{ fontSize: 13, fontWeight: 600, margin: '12px 0 8px' }}>
@@ -396,20 +438,68 @@ export default function WikiRelationsPageClient() {
                       borderBottom: '1px dashed #E5E7EB',
                     }}
                   >
-                    <Space wrap align="baseline">
-                      <Form.Item name={[name, 'key']} rules={[{ required: true, message: 'key' }]}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'nowrap',
+                        alignItems: 'center',
+                        gap: 8,
+                        overflowX: 'auto',
+                      }}
+                    >
+                      <Form.Item
+                        name={[name, 'key']}
+                        rules={[{ required: true, message: 'key' }]}
+                        style={{ marginBottom: 0, flexShrink: 0 }}
+                      >
                         <Input placeholder="字段 key" style={{ width: 120 }} />
                       </Form.Item>
-                      <Form.Item name={[name, 'label']} rules={[{ required: true, message: '名称' }]}>
-                        <Input placeholder="显示名称" style={{ width: 140 }} />
+                      <Form.Item style={{ marginBottom: 0, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          <Form.Item name={[name, 'label']} noStyle rules={[{ required: true, message: '名称' }]}>
+                            <Input
+                              placeholder="默认简体中文"
+                              style={{ width: 140 }}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                const li = form.getFieldValue(['fields', name, 'labelI18n']) as
+                                  | I18nLabels
+                                  | undefined
+                                form.setFieldValue(['fields', name, 'labelI18n'], {
+                                  ...(li && typeof li === 'object' ? li : {}),
+                                  zh: v,
+                                })
+                              }}
+                            />
+                          </Form.Item>
+                          <Tooltip title="多语言">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<Languages size={14} />}
+                              style={{ color: '#1677FF', flexShrink: 0 }}
+                              onClick={() => openFieldLabelI18nModal(name)}
+                            />
+                          </Tooltip>
+                        </div>
                       </Form.Item>
-                      <Form.Item name={[name, 'type']} rules={[{ required: true }]}>
+                      <Form.Item
+                        name={[name, 'type']}
+                        rules={[{ required: true }]}
+                        style={{ marginBottom: 0, flexShrink: 0 }}
+                      >
                         <Select options={WIKI_RELATION_FIELD_TYPE_OPTIONS} style={{ width: 220 }} />
                       </Form.Item>
-                      <Button type="text" danger size="small" onClick={() => remove(name)}>
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        style={{ flexShrink: 0 }}
+                        onClick={() => remove(name)}
+                      >
                         删
                       </Button>
-                    </Space>
+                    </div>
                     <Form.Item noStyle dependencies={[['fields', name, 'type']]}>
                       {() =>
                         form.getFieldValue(['fields', name, 'type']) === 'select' ? (
@@ -434,7 +524,13 @@ export default function WikiRelationsPageClient() {
                     </Form.Item>
                   </div>
                 ))}
-                <Button type="dashed" size="small" onClick={() => add({ type: 'text', key: '', label: '', selectOptions: [] })}>
+                <Button
+                  type="dashed"
+                  size="small"
+                  onClick={() =>
+                    add({ type: 'text', key: '', label: '', labelI18n: { zh: '' }, selectOptions: [] })
+                  }
+                >
                   + 字段
                 </Button>
               </div>
@@ -454,6 +550,22 @@ export default function WikiRelationsPageClient() {
         onSave={handleNameI18nSave}
         onCancel={() => setNameI18nModalOpen(false)}
       />
+
+      {fieldLabelI18nModalIndex !== null ? (
+        <FieldI18nModal
+          key={`field-label-i18n-${fieldLabelI18nModalIndex}`}
+          open
+          fieldKey={String(form.getFieldValue(['fields', fieldLabelI18nModalIndex, 'key']) ?? '').trim() || `field_${fieldLabelI18nModalIndex}`}
+          fieldLabel={
+            (pendingFieldLabelI18n.zh ?? '').trim() ||
+            String(form.getFieldValue(['fields', fieldLabelI18nModalIndex, 'label']) ?? '').trim() ||
+            '显示名称'
+          }
+          i18n={pendingFieldLabelI18n}
+          onSave={handleFieldLabelI18nSave}
+          onCancel={() => setFieldLabelI18nModalIndex(null)}
+        />
+      ) : null}
     </div>
   )
 }

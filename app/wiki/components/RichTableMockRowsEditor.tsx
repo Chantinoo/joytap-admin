@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { Table, Button, Switch, Popconfirm, message, Input, Tooltip, Select } from 'antd'
+import { Table, Button, Popconfirm, message, Input, Tooltip, Select } from 'antd'
 import { Plus, Search, Languages } from 'lucide-react'
 import type { RichTableMockRow } from '../utils/richTableMockData'
 import { emptyCellsForFieldKeys, richTableCellSearchText } from '../utils/richTableMockData'
@@ -186,21 +186,6 @@ export default function RichTableMockRowsEditor({
   const columns = [
     ...dynamicColumns,
     {
-      title: '隐藏',
-      key: 'hidden',
-      width: 72,
-      align: 'center' as const,
-      render: (_: unknown, record: RichTableMockRow) => (
-        <Switch
-          checked={record.hidden}
-          onChange={(checked) => {
-            setRows(paddedRows.map((r) => (r.key === record.key ? { ...r, hidden: checked } : r)))
-            messageApi.success(checked ? '已标记为隐藏' : '已取消隐藏')
-          }}
-        />
-      ),
-    },
-    {
       title: '操作',
       key: 'action',
       width: 88,
@@ -227,7 +212,7 @@ export default function RichTableMockRowsEditor({
   const addRow = () => {
     setRows([
       ...paddedRows,
-      { key: `rich_${Date.now()}`, hidden: false, cells: emptyCellsForFieldKeys(fieldKeys) },
+      { key: `rich_${Date.now()}`, cells: emptyCellsForFieldKeys(fieldKeys) },
     ])
     messageApi.success('已新增一行')
   }
