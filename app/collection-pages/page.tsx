@@ -247,9 +247,6 @@ export default function CollectionPagesPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'default' }}>
               <FileText size={13} color="#9CA3AF" />
               <span style={{ fontSize: 13, color: '#374151' }}>{total}</span>
-              {lines.length > 1 ? (
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>（多语种）</span>
-              ) : null}
             </div>
           </Tooltip>
         )
