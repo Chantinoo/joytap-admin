@@ -15,6 +15,7 @@ import {
   Switch,
   Tooltip,
   Select,
+  Popover,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -24,8 +25,14 @@ import {
   AlertCircle,
   Lock,
   GripVertical,
+  MinusCircle,
 } from 'lucide-react'
-import { TabRoute, TAB_PARTITION_LAYOUT_CONFIG, type TabPartitionLayoutType } from '../types'
+import {
+  TabRoute,
+  TAB_PARTITION_LAYOUT_CONFIG,
+  tabRouteHasSecondaryTabs,
+  type TabPartitionLayoutType,
+} from '../types'
 import { initialTabRoutes } from '../data/mockData'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
@@ -126,6 +133,26 @@ export default function TabRoutePage() {
   const handleAdd = () => {
     setEditingTab(null)
     form.resetFields()
+    form.setFieldsValue({
+      name: '',
+      useSecondaryTabs: false,
+      layoutType: 'feeds',
+      subTabs: [],
+    })
+    setModalOpen(true)
+  }
+
+  const openEditPartition = (record: TabRoute) => {
+    setEditingTab(record)
+    const hasSub = tabRouteHasSecondaryTabs(record)
+    form.setFieldsValue({
+      name: record.name,
+      useSecondaryTabs: hasSub,
+      layoutType: record.layoutType ?? 'feeds',
+      subTabs: hasSub
+        ? [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({ ...s }))
+        : [],
+    })
     setModalOpen(true)
   }
 
@@ -158,35 +185,73 @@ export default function TabRoutePage() {
     try {
       const values = await form.validateFields()
       const now = dayjs().format('YYYY-MM-DD')
+      const useSecondary = !!values.useSecondaryTabs
 
-      const layoutType = (values.layoutType ?? 'feeds') as TabPartitionLayoutType
+      let nextSubTabs: TabRoute['subTabs']
+      let nextLayout: TabPartitionLayoutType | undefined
+
+      if (useSecondary) {
+        const raw = (values.subTabs ?? []) as { id?: string; name?: string; layoutType?: TabPartitionLayoutType }[]
+        const rows = raw.filter((r) => (r.name ?? '').trim())
+        if (rows.length === 0) {
+          messageApi.error('启用二级 Tab 时请至少添加一行并填写名称')
+          return
+        }
+        nextSubTabs = rows.map((r, i) => ({
+          id: (r.id && String(r.id).trim()) || `sub-${Date.now()}-${i}`,
+          name: r.name!.trim(),
+          layoutType: (r.layoutType ?? 'feeds') as TabPartitionLayoutType,
+          sortOrder: i + 1,
+        }))
+        nextLayout = undefined
+      } else {
+        nextSubTabs = undefined
+        nextLayout = (values.layoutType ?? 'feeds') as TabPartitionLayoutType
+      }
 
       if (editingTab) {
         setTabRoutes((prev) =>
-          prev.map((t) =>
-            t.id === editingTab.id
-              ? { ...t, name: values.name, layoutType, updatedAt: now }
-              : t
-          )
+          prev.map((t) => {
+            if (t.id !== editingTab.id) return t
+            if (useSecondary) {
+              return {
+                ...t,
+                name: values.name,
+                subTabs: nextSubTabs,
+                layoutType: undefined,
+                updatedAt: now,
+              }
+            }
+            return {
+              ...t,
+              name: values.name,
+              layoutType: nextLayout,
+              subTabs: undefined,
+              updatedAt: now,
+            }
+          }),
         )
         messageApi.success('分区已更新')
       } else {
         const maxSort = Math.max(...tabRoutes.map((t) => t.sortOrder))
-        const newTab: TabRoute = {
+        const base: TabRoute = {
           id: String(Date.now()),
           name: values.name,
           type: 'guides',
-          layoutType,
           status: 'draft',
           sortOrder: maxSort + 1,
           isFixed: false,
           createdAt: now,
           updatedAt: now,
         }
+        const newTab: TabRoute = useSecondary
+          ? { ...base, subTabs: nextSubTabs }
+          : { ...base, layoutType: nextLayout }
         setTabRoutes((prev) => [...prev, newTab])
         messageApi.success('分区已创建')
       }
       setModalOpen(false)
+      setEditingTab(null)
     } catch {
       // 表单验证失败
     }
@@ -241,7 +306,7 @@ export default function TabRoutePage() {
     {
       title: '分区类型',
       key: 'layoutType',
-      width: 168,
+      width: 188,
       render: (_: unknown, record: TabRoute) => {
         if (record.isFixed) {
           const v = record.layoutType ?? 'feeds'
@@ -251,6 +316,48 @@ export default function TabRoutePage() {
                 {TAB_PARTITION_LAYOUT_CONFIG[v].label}
               </Tag>
             </Tooltip>
+          )
+        }
+        if (tabRouteHasSecondaryTabs(record)) {
+          const sorted = [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder)
+          const popover = (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 260 }}>
+              <div style={{ fontSize: 12, color: '#6B7280' }}>一级分区不配置类型；以下为各二级 Tab 的展示形态</div>
+              {sorted.map((st) => (
+                <div key={st.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ fontSize: 13, color: '#374151', flex: '1 1 auto' }}>{st.name}</span>
+                  <Select
+                    size="small"
+                    style={{ width: 118 }}
+                    value={st.layoutType}
+                    options={LAYOUT_SELECT_OPTIONS}
+                    onChange={(layoutType: TabPartitionLayoutType) => {
+                      setTabRoutes((prev) =>
+                        prev.map((t) => {
+                          if (t.id !== record.id || !t.subTabs) return t
+                          return {
+                            ...t,
+                            subTabs: t.subTabs.map((s) => (s.id === st.id ? { ...s, layoutType } : s)),
+                            updatedAt: dayjs().format('YYYY-MM-DD'),
+                          }
+                        }),
+                      )
+                      messageApi.success('已更新')
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )
+          return (
+            <Popover title="二级 Tab · 分区类型" content={popover} trigger="click" placement="bottomLeft">
+              <Tag
+                color="blue"
+                style={{ margin: 0, fontSize: 12, borderRadius: 6, cursor: 'pointer' }}
+              >
+                二级 {sorted.length} 项 · 点击配置
+              </Tag>
+            </Popover>
           )
         }
         const v = record.layoutType ?? 'feeds'
@@ -332,14 +439,24 @@ export default function TabRoutePage() {
     {
       title: '操作',
       key: 'actions',
-      width: 140,
+      width: 220,
       align: 'center',
       render: (_: unknown, record: TabRoute) => {
         if (record.isFixed) {
           return <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
         }
         return (
-          <Space size={8}>
+          <Space size={8} wrap>
+            <Tooltip title="名称、二级 Tab 与分区类型">
+              <Button
+                type="link"
+                size="small"
+                style={{ fontSize: 12, padding: 0 }}
+                onClick={() => openEditPartition(record)}
+              >
+                编辑分区
+              </Button>
+            </Tooltip>
             <Tooltip title="进入配置集合页与模块顺序">
               <Button
                 type="link"
@@ -457,14 +574,17 @@ export default function TabRoutePage() {
         title={editingTab ? '编辑分区' : '新建分区'}
         open={modalOpen}
         forceRender
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => {
+          setModalOpen(false)
+          setEditingTab(null)
+        }}
         onOk={handleSubmit}
         okText={editingTab ? '保存' : '创建'}
         cancelText="取消"
-        width={440}
+        width={600}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ layoutType: 'feeds' }}>
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ layoutType: 'feeds', useSecondaryTabs: false, subTabs: [] }}>
           <Form.Item
             name="name"
             label="分区名称"
@@ -472,13 +592,77 @@ export default function TabRoutePage() {
           >
             <Input placeholder="例如：攻略、官方、交流" autoFocus />
           </Form.Item>
+
           <Form.Item
-            name="layoutType"
-            label="分区类型"
-            tooltip="决定该分区下内容在前台以何种版式展示（与下方模块配置配合，由前台解析）"
-            rules={[{ required: true, message: '请选择分区类型' }]}
+            name="useSecondaryTabs"
+            label="启用二级 Tab"
+            valuePropName="checked"
+            tooltip="开启后，一级分区不再配置「分区类型」；需为每个二级 Tab 单独选择 Feeds 流或卡片网格（适合官方下「综合/资讯/活动」等结构）"
           >
-            <Select placeholder="请选择" options={LAYOUT_SELECT_OPTIONS} />
+            <Switch
+              checkedChildren="开"
+              unCheckedChildren="关"
+              onChange={(checked) => {
+                if (checked) {
+                  const cur = form.getFieldValue('subTabs') as unknown[] | undefined
+                  if (!cur?.length) {
+                    form.setFieldValue('subTabs', [{ id: `sub-${Date.now()}`, name: '', layoutType: 'feeds' }])
+                  }
+                }
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.useSecondaryTabs !== cur.useSecondaryTabs}>
+            {({ getFieldValue }) =>
+              getFieldValue('useSecondaryTabs') ? (
+                <Form.List name="subTabs">
+                  {(fields, { add, remove }) => (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>二级 Tab 列表（名称 + 分区类型）</div>
+                      {fields.map(({ key, name: idx, ...restField }) => (
+                        <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                          <Form.Item {...restField} name={[idx, 'id']} hidden>
+                            <Input />
+                          </Form.Item>
+                          <Form.Item
+                            {...restField}
+                            name={[idx, 'name']}
+                            rules={[{ required: true, message: '请填写二级 Tab 名称' }]}
+                            style={{ marginBottom: 0, flex: 1 }}
+                          >
+                            <Input placeholder="如：综合、资讯" style={{ width: 160 }} />
+                          </Form.Item>
+                          <Form.Item {...restField} name={[idx, 'layoutType']} style={{ marginBottom: 0 }}>
+                            <Select style={{ width: 130 }} options={LAYOUT_SELECT_OPTIONS} />
+                          </Form.Item>
+                          <Button
+                            type="text"
+                            danger
+                            size="small"
+                            icon={<MinusCircle size={16} />}
+                            onClick={() => remove(idx)}
+                            aria-label="删除该行"
+                          />
+                        </Space>
+                      ))}
+                      <Button type="dashed" onClick={() => add({ id: `sub-${Date.now()}`, name: '', layoutType: 'feeds' })} block>
+                        + 添加二级 Tab
+                      </Button>
+                    </div>
+                  )}
+                </Form.List>
+              ) : (
+                <Form.Item
+                  name="layoutType"
+                  label="分区类型"
+                  tooltip="无二级 Tab 时，由一级分区决定前台版式"
+                  rules={[{ required: true, message: '请选择分区类型' }]}
+                >
+                  <Select placeholder="请选择" options={LAYOUT_SELECT_OPTIONS} />
+                </Form.Item>
+              )
+            }
           </Form.Item>
         </Form>
       </Modal>

@@ -51,6 +51,14 @@ export const TAB_PARTITION_LAYOUT_CONFIG: Record<
   },
 }
 
+/** 一级分区下的二级 Tab（如「官方」下的 综合/资讯/活动…）；有此项时一级不再使用 layoutType */
+export interface TabSubRoute {
+  id: string
+  name: string
+  layoutType: TabPartitionLayoutType
+  sortOrder: number
+}
+
 export interface TabRoute {
   id: string
   name: string
@@ -58,10 +66,18 @@ export interface TabRoute {
   status: 'active' | 'draft'
   sortOrder: number
   isFixed: boolean
-  /** 前台内容布局；未传时前台可按 Feeds 流处理 */
+  /**
+   * 一级分区的前台布局；**若配置了 `subTabs` 且非空，则一级不展示分区类型，本字段应省略**（由各子 Tab 的 layoutType 决定）
+   */
   layoutType?: TabPartitionLayoutType
+  /** 二级 Tab；存在且非空时，分区类型在子级配置 */
+  subTabs?: TabSubRoute[]
   createdAt: string
   updatedAt: string
+}
+
+export function tabRouteHasSecondaryTabs(tab: TabRoute): boolean {
+  return Array.isArray(tab.subTabs) && tab.subTabs.length > 0
 }
 
 export const TAB_TYPE_CONFIG: Record<TabType, { label: string; color: string; bg: string }> = {

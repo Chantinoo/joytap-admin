@@ -40,6 +40,7 @@ import {
   CollectionEntry,
   PostEntry,
   TAB_PARTITION_LAYOUT_CONFIG,
+  tabRouteHasSecondaryTabs,
 } from '../../types'
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
@@ -796,9 +797,15 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
             {tabInfo && !tabInfo.isFixed ? (
-              <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
-                分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
-              </Tag>
+              tabRouteHasSecondaryTabs(tabInfo) ? (
+                <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
+                  二级 Tab {tabInfo.subTabs!.length} 个 · 分区类型在子 Tab 上配置
+                </Tag>
+              ) : (
+                <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
+                  分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
+                </Tag>
+              )
             ) : null}
           </div>
         </div>
