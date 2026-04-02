@@ -402,7 +402,7 @@ export default function CollectionPagesPage() {
         </Modal>
 
         <Modal
-          title="编辑集合页（名称与链接）"
+          title="编辑集合页"
           open={!!editRecord}
           onCancel={() => setEditRecord(null)}
           footer={null}

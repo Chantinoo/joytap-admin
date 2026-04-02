@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Form, Input, Button, Select, Tag, Spin, message } from 'antd'
-import { Wand2 } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Form, Input, Button, Select, Spin, message } from 'antd'
+import { Plus, Trash2, Wand2 } from 'lucide-react'
 import {
   LANGUAGES,
   mockTranslateFieldI18n,
@@ -14,6 +14,48 @@ import type { CollectionPageData } from '../types'
 
 const { Option } = Select
 
+type Row = { id: string; lang: LangCode; name: string; link: string }
+
+function rowId() {
+  return `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function langLabel(code: LangCode) {
+  return LANGUAGES.find((l) => l.code === code)?.label ?? code
+}
+
+function buildRowsFromPage(page: CollectionPageData): Row[] {
+  const nameM = mergeNameI18n(page)
+  const linkM = mergeLinkI18n(page)
+  const langs = new Set<LangCode>()
+  for (const l of LANGUAGES) {
+    if (nameM[l.code]?.trim() || linkM[l.code]?.trim()) {
+      langs.add(l.code)
+    }
+  }
+  if (langs.size === 0) {
+    return [
+      {
+        id: rowId(),
+        lang: 'zh',
+        name: page.name?.trim() ?? '',
+        link: (page.link ?? '').trim(),
+      },
+    ]
+  }
+  return LANGUAGES.filter((l) => langs.has(l.code)).map((l) => ({
+    id: rowId(),
+    lang: l.code,
+    name: nameM[l.code]?.trim() ?? '',
+    link: linkM[l.code]?.trim() ?? '',
+  }))
+}
+
+function firstUnusedLang(used: Set<LangCode>): LangCode | null {
+  const next = LANGUAGES.find((l) => !used.has(l.code))
+  return next?.code ?? null
+}
+
 export interface CollectionPageEditFormProps {
   page: CollectionPageData
   onSave: (next: { nameI18n: I18nLabels; linkI18n: I18nLabels }) => void
@@ -21,28 +63,70 @@ export interface CollectionPageEditFormProps {
 }
 
 export default function CollectionPageEditForm({ page, onSave, onCancel }: CollectionPageEditFormProps) {
-  const [nameValues, setNameValues] = useState<I18nLabels>(() => ({ ...mergeNameI18n(page) }))
-  const [linkValues, setLinkValues] = useState<I18nLabels>(() => ({ ...mergeLinkI18n(page) }))
+  const [rows, setRows] = useState<Row[]>(() => buildRowsFromPage(page))
   const [sourceLang, setSourceLang] = useState<LangCode>('zh')
   const [translating, setTranslating] = useState(false)
   const [messageApi, contextHolder] = message.useMessage()
 
   useEffect(() => {
-    setNameValues({ ...mergeNameI18n(page) })
-    setLinkValues({ ...mergeLinkI18n(page) })
+    setRows(buildRowsFromPage(page))
+    setSourceLang('zh')
   }, [page])
 
+  const usedLangs = useMemo(() => new Set(rows.map((r) => r.lang)), [rows])
+
+  const updateRow = (id: string, patch: Partial<Pick<Row, 'lang' | 'name' | 'link'>>) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  }
+
+  const removeRow = (id: string) => {
+    setRows((prev) => {
+      if (prev.length <= 1) {
+        messageApi.warning('至少保留一行')
+        return prev
+      }
+      return prev.filter((r) => r.id !== id)
+    })
+  }
+
+  const addRow = () => {
+    const lang = firstUnusedLang(usedLangs)
+    if (!lang) {
+      messageApi.warning('已添加全部支持语种')
+      return
+    }
+    setRows((prev) => [...prev, { id: rowId(), lang, name: '', link: '' }])
+  }
+
   const handleTranslate = async () => {
-    const sourceText = nameValues[sourceLang] ?? ''
-    if (!sourceText.trim()) {
-      messageApi.warning('请先填写源语言名称')
+    const sourceRow = rows.find((r) => r.lang === sourceLang)
+    const sourceText = sourceRow?.name?.trim() ?? ''
+    if (!sourceText) {
+      messageApi.warning(`请先在「${langLabel(sourceLang)}」行填写名称`)
       return
     }
     const targetLangs = LANGUAGES.map((l) => l.code).filter((c) => c !== sourceLang) as LangCode[]
     setTranslating(true)
     try {
       const result = await mockTranslateFieldI18n(sourceText, sourceLang, targetLangs)
-      setNameValues((prev) => ({ ...prev, ...result }))
+      setRows((prev) => {
+        const next = [...prev]
+        const byLang = new Map(next.map((r) => [r.lang, r] as const))
+        for (const code of targetLangs) {
+          const text = result[code]?.trim()
+          if (!text) continue
+          const existing = byLang.get(code)
+          if (existing) {
+            const idx = next.findIndex((r) => r.id === existing.id)
+            if (idx >= 0) next[idx] = { ...next[idx], name: text }
+          } else {
+            const id = rowId()
+            next.push({ id, lang: code, name: text, link: '' })
+            byLang.set(code, next[next.length - 1])
+          }
+        }
+        return next
+      })
       messageApi.success('AI 翻译完成')
     } finally {
       setTranslating(false)
@@ -50,145 +134,156 @@ export default function CollectionPageEditForm({ page, onSave, onCancel }: Colle
   }
 
   const handleSubmit = () => {
+    const seen = new Set<LangCode>()
+    for (const r of rows) {
+      if (seen.has(r.lang)) {
+        messageApi.error(`语种「${langLabel(r.lang)}」重复，请每行选择不同语种`)
+        return
+      }
+      seen.add(r.lang)
+    }
     const prunedName: I18nLabels = {}
     const prunedLink: I18nLabels = {}
-    for (const l of LANGUAGES) {
-      const t = nameValues[l.code]?.trim()
-      if (t) prunedName[l.code] = t
-      const u = linkValues[l.code]?.trim()
-      if (u) prunedLink[l.code] = u
+    for (const r of rows) {
+      const t = r.name.trim()
+      const u = r.link.trim()
+      if (t) prunedName[r.lang] = t
+      if (u) prunedLink[r.lang] = u
     }
     if (Object.keys(prunedName).length === 0) {
-      messageApi.error('请至少填写一个语种的集合页名称')
+      messageApi.error('请至少填写一行集合页名称')
       return
     }
     if (Object.keys(prunedLink).length === 0) {
-      messageApi.error('请至少填写一个语种的前台链接路径（建议先填简体中文）')
+      messageApi.error('请至少填写一行前台链接路径')
       return
     }
     onSave({ nameI18n: prunedName, linkI18n: prunedLink })
   }
 
-  const gap = 16
-  const itemMb = 12
-
   return (
-    <div style={{ marginTop: 8 }}>
+    <div style={{ marginTop: 4 }}>
       {contextHolder}
+
       <div
         style={{
-          marginBottom: gap,
-          padding: '14px 16px',
+          marginBottom: 14,
+          padding: '12px 14px',
           background: '#F0F9FF',
           border: '1px solid #BAE6FD',
           borderRadius: 8,
           display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 10,
         }}
       >
-        <p style={{ margin: 0, fontSize: 13, color: '#0C4A6E', lineHeight: 1.55 }}>
-          名称支持 AI 翻译；各语种<strong>链接需手动填写</strong>（可与前台路由约定，如 <code>/en/collection/6</code>）。
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', rowGap: 10 }}>
-          <span style={{ fontSize: 13, color: '#0369A1', fontWeight: 500, flexShrink: 0 }}>名称 · 源语言</span>
-          <Select
-            value={sourceLang}
-            onChange={setSourceLang}
-            size="small"
-            style={{ minWidth: 148, flex: '1 1 132px', maxWidth: 220 }}
-            popupMatchSelectWidth={false}
-          >
-            {LANGUAGES.map((l) => (
-              <Option key={l.code} value={l.code}>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, marginRight: 4 }}>{l.code}</span> {l.label}
-              </Option>
-            ))}
-          </Select>
-          <Button
-            size="small"
-            type="primary"
-            icon={translating ? <Spin size="small" /> : <Wand2 size={12} />}
-            onClick={handleTranslate}
-            disabled={translating}
-            style={{ borderRadius: 6, flexShrink: 0, marginLeft: 'auto' }}
-          >
-            {translating ? '翻译中…' : 'AI 翻译名称'}
-          </Button>
-        </div>
+        <span style={{ fontSize: 12, color: '#0C4A6E', flex: '1 1 200px' }}>
+          名称可一键翻译到其它已选语种；<strong>链接</strong>请按行手动填写（各语种可不同）。
+        </span>
+        <Select
+          value={sourceLang}
+          onChange={setSourceLang}
+          size="small"
+          style={{ width: 160 }}
+          popupMatchSelectWidth={false}
+        >
+          {LANGUAGES.map((l) => (
+            <Option key={l.code} value={l.code}>
+              {l.label}
+            </Option>
+          ))}
+        </Select>
+        <Button
+          size="small"
+          type="primary"
+          icon={translating ? <Spin size="small" /> : <Wand2 size={12} />}
+          onClick={handleTranslate}
+          disabled={translating}
+        >
+          {translating ? '翻译中…' : 'AI 翻译名称'}
+        </Button>
       </div>
 
-      <Form layout="vertical">
-        {LANGUAGES.map((lang) => (
-          <Form.Item
-            key={lang.code}
-            style={{ marginBottom: itemMb }}
-            label={
-              <span style={{ fontSize: 13 }}>
-                <span
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: '#6B7280',
-                    background: '#F3F4F6',
-                    padding: '1px 5px',
-                    borderRadius: 3,
-                    marginRight: 6,
+      <Form layout="vertical" requiredMark>
+        <Form.Item
+          label="集合页名称"
+          required
+          style={{ marginBottom: 10 }}
+          tooltip="每行选择一个语种，填写该语种下的展示名称与前台路径"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {rows.map((r) => (
+              <div
+                key={r.id}
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 12px',
+                  background: '#FAFAFA',
+                  borderRadius: 8,
+                  border: '1px solid #F0F0F0',
+                }}
+              >
+                <Select
+                  value={r.lang}
+                  onChange={(code: LangCode) => {
+                    if (rows.some((x) => x.id !== r.id && x.lang === code)) {
+                      messageApi.warning('该语种已在其它行使用')
+                      return
+                    }
+                    updateRow(r.id, { lang: code })
                   }}
+                  style={{ width: 148, flexShrink: 0 }}
+                  popupMatchSelectWidth={false}
                 >
-                  {lang.code}
-                </span>
-                {lang.label}
-                {lang.code === sourceLang ? (
-                  <Tag color="blue" style={{ marginLeft: 6, fontSize: 11 }}>
-                    名称源语言
-                  </Tag>
-                ) : null}
-              </span>
-            }
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Input
-                value={nameValues[lang.code] ?? ''}
-                onChange={(e) => setNameValues((prev) => ({ ...prev, [lang.code]: e.target.value }))}
-                placeholder={`${lang.label}下的展示名称`}
-                suffix={
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 18,
-                      minHeight: 18,
-                    }}
-                  >
-                    {translating && lang.code !== sourceLang ? <Spin size="small" /> : '\u00a0'}
-                  </span>
-                }
-              />
-              <Input
-                value={linkValues[lang.code] ?? ''}
-                onChange={(e) => setLinkValues((prev) => ({ ...prev, [lang.code]: e.target.value }))}
-                placeholder="前台路径，如 /collection/6 或 /en/collection/6"
-              />
-            </div>
-          </Form.Item>
-        ))}
+                  {LANGUAGES.map((l) => (
+                    <Option
+                      key={l.code}
+                      value={l.code}
+                      disabled={usedLangs.has(l.code) && l.code !== r.lang}
+                    >
+                      {l.label}
+                    </Option>
+                  ))}
+                </Select>
+                <Input
+                  value={r.name}
+                  onChange={(e) => updateRow(r.id, { name: e.target.value })}
+                  placeholder="展示名称"
+                  style={{ flex: '1 1 140px', minWidth: 120 }}
+                />
+                <Input
+                  value={r.link}
+                  onChange={(e) => updateRow(r.id, { link: e.target.value })}
+                  placeholder="前台路径，如 /collection/6"
+                  style={{ flex: '1 1 180px', minWidth: 160 }}
+                />
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  icon={<Trash2 size={16} />}
+                  onClick={() => removeRow(r.id)}
+                  style={{ flexShrink: 0 }}
+                  aria-label="删除该行"
+                />
+              </div>
+            ))}
+          </div>
+        </Form.Item>
+
+        <Button type="dashed" block icon={<Plus size={14} />} onClick={addRow} style={{ marginBottom: 8 }}>
+          添加语种
+        </Button>
       </Form>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-          marginTop: 16,
-          paddingTop: 8,
-          borderTop: '1px solid #F3F4F6',
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px solid #F0F0F0' }}>
         <Button onClick={onCancel}>取消</Button>
         <Button type="primary" onClick={handleSubmit}>
-          保存
+          确定
         </Button>
       </div>
     </div>
