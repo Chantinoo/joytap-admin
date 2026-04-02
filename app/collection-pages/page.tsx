@@ -9,32 +9,20 @@ import { CollectionPageData } from '../types'
 import { useCollectionPages } from '../context/CollectionPagesContext'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
-import FieldI18nEditor from '../wiki/components/FieldI18nEditor'
-import { LANGUAGES, type I18nLabels, type LangCode } from '../wiki/components/fieldI18nConstants'
+import { LANGUAGES, type I18nLabels } from '../wiki/components/fieldI18nConstants'
 import {
   localeArticleCounts,
   totalArticlesCount,
   hasOrphanLocaleArticles,
   getArticlesForLocale,
   localeHasDisplayName,
+  mergeNameI18n,
+  mergeLinkI18n,
+  pickPrimaryI18nValue,
+  primaryCollectionLink,
+  maxCollectionNumericSuffix,
 } from '../lib/collectionPageLocale'
-
-function mergeNameI18n(record: CollectionPageData): I18nLabels {
-  return {
-    ...(record.nameI18n ?? {}),
-    zh: record.nameI18n?.zh ?? record.name,
-  }
-}
-
-function pickPrimaryDisplayName(i18n: I18nLabels, fallback: string): string {
-  const order: LangCode[] = ['zh', 'zh-tw', 'en', 'ko', 'ja', 'es', 'pt']
-  for (const k of order) {
-    const v = i18n[k]?.trim()
-    if (v) return v
-  }
-  const first = Object.values(i18n).find((v) => v?.trim())
-  return (first?.trim() || fallback).trim() || fallback
-}
+import CollectionPageEditForm from './CollectionPageEditForm'
 
 function configuredI18nEntries(record: CollectionPageData): { code: string; label: string; text: string }[] {
   const merged = mergeNameI18n(record)
@@ -123,23 +111,19 @@ export default function CollectionPagesPage() {
     })
   }, [pages, searchName])
 
-  const genLink = () => {
-    const maxN = pages.reduce((max, p) => {
-      const m = p.link.match(/^\/collection\/(\d+)$/)
-      return m ? Math.max(max, parseInt(m[1], 10)) : max
-    }, 0)
-    return `/collection/${maxN + 1}`
-  }
+  const genLink = () => `/collection/${maxCollectionNumericSuffix(pages) + 1}`
 
   const handleCreate = async () => {
     const values = await form.validateFields()
     const id = `cp-${Date.now()}`
     const name = values.name as string
+    const path = genLink()
     addPage({
       id,
       name,
       nameI18n: { zh: name },
-      link: genLink(),
+      link: path,
+      linkI18n: { zh: path },
       articlesByLocale: { zh: [] },
     })
     messageApi.success('集合页已创建')
@@ -147,18 +131,18 @@ export default function CollectionPagesPage() {
     form.resetFields()
   }
 
-  const handleSaveEditI18n = (next: I18nLabels) => {
+  const handleSaveCollectionMeta = (next: { nameI18n: I18nLabels; linkI18n: I18nLabels }) => {
     if (!editRecord) return
-    const pruned: I18nLabels = {}
-    for (const l of LANGUAGES) {
-      const t = next[l.code]?.trim()
-      if (t) pruned[l.code] = t
-    }
-    const primary = pickPrimaryDisplayName(pruned, editRecord.name)
+    const prunedName = next.nameI18n
+    const prunedLink = next.linkI18n
+    const primaryName = pickPrimaryI18nValue(prunedName, editRecord.name)
+    const primaryLink = pickPrimaryI18nValue(prunedLink, editRecord.link)
     const newPage: CollectionPageData = {
       ...editRecord,
-      name: primary,
-      nameI18n: Object.keys(pruned).length > 0 ? pruned : undefined,
+      name: primaryName,
+      nameI18n: prunedName,
+      link: primaryLink,
+      linkI18n: prunedLink,
     }
     const removedLabels: string[] = []
     for (const l of LANGUAGES) {
@@ -168,8 +152,10 @@ export default function CollectionPagesPage() {
       }
     }
     updatePageMeta(editRecord.id, {
-      name: primary,
-      nameI18n: Object.keys(pruned).length > 0 ? pruned : undefined,
+      name: primaryName,
+      nameI18n: Object.keys(prunedName).length > 0 ? prunedName : undefined,
+      link: primaryLink,
+      linkI18n: Object.keys(prunedLink).length > 0 ? prunedLink : undefined,
     })
     if (removedLabels.length > 0) {
       messageApi.success(
@@ -192,23 +178,37 @@ export default function CollectionPagesPage() {
     },
     {
       title: '链接',
-      dataIndex: 'link',
       key: 'link',
-      width: 260,
-      render: (link: string) =>
-        link ? (
-          <a
-            href={link}
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 12, color: '#1677FF' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {link}
-          </a>
-        ) : (
-          <span style={{ fontSize: 12, color: '#C0C8D0' }}>未设置</span>
-        ),
+      width: 280,
+      render: (_, record) => {
+        const primary = primaryCollectionLink(record)
+        const merged = mergeLinkI18n(record)
+        const lines = LANGUAGES.map((l) => {
+          const path = merged[l.code]?.trim()
+          return path ? `${l.code}：${path}` : null
+        }).filter(Boolean) as string[]
+        const tip = lines.length ? lines.join('\n') : '未设置'
+        if (!primary) {
+          return (
+            <span style={{ fontSize: 12, color: '#C0C8D0' }} onClick={(e) => e.stopPropagation()}>
+              未设置
+            </span>
+          )
+        }
+        return (
+          <Tooltip title={<pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>{tip}</pre>}>
+            <a
+              href={primary}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 12, color: '#1677FF' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {primary}
+            </a>
+          </Tooltip>
+        )
+      },
     },
     {
       title: '隐藏',
@@ -396,25 +396,24 @@ export default function CollectionPagesPage() {
                 border: '1px solid #E5E7EB',
               }}
             >
-              链接将自动生成（格式：/collection/N），创建后在列表中可查看；多语言名称可在列表中点击「编辑」配置
+              默认生成简体中文前台路径（/collection/N）；其它语种路径请在创建后点击「编辑」，与名称一并配置
             </div>
           </Form>
         </Modal>
 
         <Modal
-          title="编辑集合页"
+          title="编辑集合页（名称与链接）"
           open={!!editRecord}
           onCancel={() => setEditRecord(null)}
           footer={null}
-          width={560}
+          width={640}
           destroyOnHidden
         >
           {editRecord && (
-            <FieldI18nEditor
+            <CollectionPageEditForm
               key={editRecord.id}
-              i18n={mergeNameI18n(editRecord)}
-              fieldLabel="集合页名称"
-              onSave={handleSaveEditI18n}
+              page={editRecord}
+              onSave={handleSaveCollectionMeta}
               onCancel={() => setEditRecord(null)}
             />
           )}

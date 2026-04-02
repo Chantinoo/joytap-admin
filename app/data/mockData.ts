@@ -131,6 +131,12 @@ export const collectionPages: CollectionPageData[] = [
       en: 'Weapon guides',
     },
     link: '/collection/6',
+    linkI18n: {
+      zh: '/collection/6',
+      'zh-tw': '/collection/6',
+      en: '/en/collection/6',
+      ko: '/ko/collection/6',
+    },
     coverUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&h=120&fit=crop',
     articlesByLocale: {
       zh: [

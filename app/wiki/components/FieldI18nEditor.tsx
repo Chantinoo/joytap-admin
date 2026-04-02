@@ -14,12 +14,21 @@ export interface FieldI18nEditorProps {
   onCancel: () => void
   /** 紧凑布局（气泡内） */
   compact?: boolean
+  /** 是否展示顶部「AI 翻译」区（链接等多数字段可关闭） */
+  showAiTranslate?: boolean
 }
 
 /**
  * 多语言表单本体（无 Modal 外壳），供弹窗 / 抽屉 / 气泡 / 行内展开复用。
  */
-export default function FieldI18nEditor({ i18n, fieldLabel, onSave, onCancel, compact }: FieldI18nEditorProps) {
+export default function FieldI18nEditor({
+  i18n,
+  fieldLabel,
+  onSave,
+  onCancel,
+  compact,
+  showAiTranslate = true,
+}: FieldI18nEditorProps) {
   const [values, setValues] = useState<I18nLabels>({ ...i18n })
   const [sourceLang, setSourceLang] = useState<LangCode>('zh')
   const [translating, setTranslating] = useState(false)
@@ -51,59 +60,60 @@ export default function FieldI18nEditor({ i18n, fieldLabel, onSave, onCancel, co
   return (
     <div style={{ marginTop: compact ? 0 : 8 }}>
       {contextHolder}
-      {/* AI 翻译：上下分层，说明与操作区分离，避免窄屏下挤成一团 */}
-      <div
-        style={{
-          marginBottom: gap,
-          padding: aiCardPad,
-          background: '#F0F9FF',
-          border: '1px solid #BAE6FD',
-          borderRadius: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: aiInnerGap,
-        }}
-      >
-        <p style={{ margin: 0, fontSize: compact ? 12 : 13, color: '#0C4A6E', lineHeight: 1.55 }}>
-          选择源语言后，可一键将文案翻译到其余语种（基于当前已填内容）。
-        </p>
+      {showAiTranslate ? (
         <div
           style={{
+            marginBottom: gap,
+            padding: aiCardPad,
+            background: '#F0F9FF',
+            border: '1px solid #BAE6FD',
+            borderRadius: 8,
             display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            flexWrap: 'wrap',
-            rowGap: 10,
+            flexDirection: 'column',
+            gap: aiInnerGap,
           }}
         >
-          <span style={{ fontSize: compact ? 12 : 13, color: '#0369A1', fontWeight: 500, flexShrink: 0 }}>
-            源语言
-          </span>
-          <Select
-            value={sourceLang}
-            onChange={setSourceLang}
-            size="small"
-            style={{ minWidth: compact ? 132 : 148, flex: '1 1 132px', maxWidth: 220 }}
-            popupMatchSelectWidth={false}
+          <p style={{ margin: 0, fontSize: compact ? 12 : 13, color: '#0C4A6E', lineHeight: 1.55 }}>
+            选择源语言后，可一键将文案翻译到其余语种（基于当前已填内容）。
+          </p>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              flexWrap: 'wrap',
+              rowGap: 10,
+            }}
           >
-            {LANGUAGES.map(l => (
-              <Option key={l.code} value={l.code}>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, marginRight: 4 }}>{l.code}</span> {l.label}
-              </Option>
-            ))}
-          </Select>
-          <Button
-            size="small"
-            type="primary"
-            icon={translating ? <Spin size="small" /> : <Wand2 size={12} />}
-            onClick={handleTranslate}
-            disabled={translating}
-            style={{ borderRadius: 6, flexShrink: 0, marginLeft: 'auto' }}
-          >
-            {translating ? '翻译中…' : 'AI 翻译'}
-          </Button>
+            <span style={{ fontSize: compact ? 12 : 13, color: '#0369A1', fontWeight: 500, flexShrink: 0 }}>
+              源语言
+            </span>
+            <Select
+              value={sourceLang}
+              onChange={setSourceLang}
+              size="small"
+              style={{ minWidth: compact ? 132 : 148, flex: '1 1 132px', maxWidth: 220 }}
+              popupMatchSelectWidth={false}
+            >
+              {LANGUAGES.map(l => (
+                <Option key={l.code} value={l.code}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, marginRight: 4 }}>{l.code}</span> {l.label}
+                </Option>
+              ))}
+            </Select>
+            <Button
+              size="small"
+              type="primary"
+              icon={translating ? <Spin size="small" /> : <Wand2 size={12} />}
+              onClick={handleTranslate}
+              disabled={translating}
+              style={{ borderRadius: 6, flexShrink: 0, marginLeft: 'auto' }}
+            >
+              {translating ? '翻译中…' : 'AI 翻译'}
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <Form layout="vertical">
         {LANGUAGES.map(lang => (

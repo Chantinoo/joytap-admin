@@ -1,5 +1,5 @@
 import type { CollectionPageData, Article } from '../types'
-import { LANGUAGES, type LangCode } from '../wiki/components/fieldI18nConstants'
+import { LANGUAGES, type LangCode, type I18nLabels } from '../wiki/components/fieldI18nConstants'
 
 /** 合并 articlesByLocale 与旧版顶层 articles（视为 zh） */
 export function mergeArticlesBuckets(page: CollectionPageData): Partial<Record<LangCode, Article[]>> {
@@ -85,4 +85,60 @@ export function hasOrphanLocaleArticles(page: CollectionPageData): boolean {
 /** 当前语种是否处于「仅有帖子、无展示名称」状态 */
 export function isLocaleUnnamedWithPosts(page: CollectionPageData, locale: LangCode): boolean {
   return getArticlesForLocale(page, locale).length > 0 && !localeHasDisplayName(page, locale)
+}
+
+export function mergeNameI18n(page: CollectionPageData): I18nLabels {
+  return {
+    ...(page.nameI18n ?? {}),
+    zh: page.nameI18n?.zh ?? page.name,
+  }
+}
+
+export function mergeLinkI18n(page: CollectionPageData): I18nLabels {
+  return {
+    ...(page.linkI18n ?? {}),
+    zh: page.linkI18n?.zh ?? page.link,
+  }
+}
+
+/** 按运营常用顺序取第一个非空文案，用于列表主展示字段 */
+export function pickPrimaryI18nValue(i18n: I18nLabels, fallback: string): string {
+  const order: LangCode[] = ['zh', 'zh-tw', 'en', 'ko', 'ja', 'es', 'pt']
+  for (const k of order) {
+    const v = i18n[k]?.trim()
+    if (v) return v
+  }
+  const first = Object.values(i18n).find((v) => v?.trim())
+  return (first?.trim() || fallback).trim() || fallback
+}
+
+export function primaryCollectionLink(page: CollectionPageData): string {
+  return pickPrimaryI18nValue(mergeLinkI18n(page), page.link ?? '')
+}
+
+/** 分区模块里配置的 `link` 是否与该集合页任一语种路径一致 */
+export function collectionPageMatchesPublicLink(page: CollectionPageData, href: string): boolean {
+  const h = href.trim()
+  if (!h) return false
+  const merged = mergeLinkI18n(page)
+  for (const l of LANGUAGES) {
+    const v = merged[l.code]?.trim()
+    if (v === h) return true
+  }
+  return false
+}
+
+/** 扫描已配置路径中的 `/collection/<n>` 序号，用于新建集合页时递增 */
+export function maxCollectionNumericSuffix(pages: CollectionPageData[]): number {
+  let max = 0
+  for (const p of pages) {
+    const urls = [p.link, ...Object.values(p.linkI18n ?? {})]
+    for (const raw of urls) {
+      if (!raw?.trim()) continue
+      for (const m of raw.matchAll(/\/collection\/(\d+)/g)) {
+        max = Math.max(max, parseInt(m[1], 10))
+      }
+    }
+  }
+  return max
 }

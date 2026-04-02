@@ -17,7 +17,10 @@ export interface CollectionPageData {
   name: string
   /** 集合页名称多语言；未填语种可省略 */
   nameI18n?: I18nLabels
+  /** 列表与分区模块默认展示的「主链接」（通常与简体中文路径一致） */
   link: string
+  /** 各语种前台访问路径；未填语种前台可约定回退到主链接或 `link` */
+  linkI18n?: I18nLabels
   coverUrl?: string
   /** 按语种的帖子列表（各语言互相独立） */
   articlesByLocale?: Partial<Record<LangCode, Article[]>>

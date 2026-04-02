@@ -10,7 +10,10 @@ interface CollectionPagesCtx {
   pages: CollectionPageData[]
   addPage: (page: CollectionPageData) => void
   deletePage: (id: string) => void
-  updatePageMeta: (id: string, patch: Partial<Pick<CollectionPageData, 'name' | 'nameI18n' | 'hidden'>>) => void
+  updatePageMeta: (
+    id: string,
+    patch: Partial<Pick<CollectionPageData, 'name' | 'nameI18n' | 'hidden' | 'link' | 'linkI18n'>>,
+  ) => void
   updateArticles: (pageId: string, locale: LangCode, articles: Article[]) => void
 }
 
@@ -25,7 +28,10 @@ export function CollectionPagesProvider({ children }: { children: React.ReactNod
   const deletePage = (id: string) =>
     setPages((prev) => prev.filter((p) => p.id !== id))
 
-  const updatePageMeta = (id: string, patch: Partial<Pick<CollectionPageData, 'name' | 'nameI18n' | 'hidden'>>) =>
+  const updatePageMeta = (
+    id: string,
+    patch: Partial<Pick<CollectionPageData, 'name' | 'nameI18n' | 'hidden' | 'link' | 'linkI18n'>>,
+  ) =>
     setPages((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
 
   const updateArticles = (pageId: string, locale: LangCode, articles: Article[]) =>

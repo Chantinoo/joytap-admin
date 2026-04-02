@@ -43,7 +43,11 @@ import {
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
 import { useLeaveGuard } from '../../context/LeaveGuardContext'
-import { totalArticlesCount } from '../../lib/collectionPageLocale'
+import {
+  totalArticlesCount,
+  collectionPageMatchesPublicLink,
+  primaryCollectionLink,
+} from '../../lib/collectionPageLocale'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
 import ForumSelectRequired from '../../components/ForumSelectRequired'
@@ -676,7 +680,7 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
     .map((p) => ({
       id: p.id,
       name: p.name,
-      link: p.link,
+      link: primaryCollectionLink(p),
       postsTotal: totalArticlesCount(p),
     }))
 
@@ -756,7 +760,7 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
   }, [modules.length, messageApi])
 
   const handleEditCollection = useCallback((col: CollectionEntry) => {
-    const matched = collectionPages.find((p) => p.link === col.link)
+    const matched = collectionPages.find((p) => collectionPageMatchesPublicLink(p, col.link))
     if (!matched) {
       messageApi.warning(`未找到对应的集合页（${col.link}），请先在集合页管理中创建`)
       return
