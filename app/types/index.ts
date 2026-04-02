@@ -32,6 +32,25 @@ export interface CollectionPageData {
   hidden?: boolean
 }
 
+/** 分区下内容在前台的布局形态（与业务 `type` 独立，仅约束展示样式） */
+export type TabPartitionLayoutType = 'feeds' | 'card-grid'
+
+export const TAB_PARTITION_LAYOUT_CONFIG: Record<
+  TabPartitionLayoutType,
+  { label: string; shortLabel: string; hint: string }
+> = {
+  feeds: {
+    label: 'Feeds 流',
+    shortLabel: 'Feeds 流',
+    hint: '纵向信息流：列表行式，常见为左缩略图 + 标题/元信息（类似时间线列表）',
+  },
+  'card-grid': {
+    label: '卡片网格',
+    shortLabel: '卡片网格',
+    hint: '宫格/卡片式多列铺排，适合专题入口、合集封面墙等',
+  },
+}
+
 export interface TabRoute {
   id: string
   name: string
@@ -39,6 +58,8 @@ export interface TabRoute {
   status: 'active' | 'draft'
   sortOrder: number
   isFixed: boolean
+  /** 前台内容布局；未传时前台可按 Feeds 流处理 */
+  layoutType?: TabPartitionLayoutType
   createdAt: string
   updatedAt: string
 }

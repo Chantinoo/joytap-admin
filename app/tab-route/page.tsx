@@ -14,6 +14,7 @@ import {
   Popconfirm,
   Switch,
   Tooltip,
+  Select,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -24,11 +25,16 @@ import {
   Lock,
   GripVertical,
 } from 'lucide-react'
-import { TabRoute } from '../types'
+import { TabRoute, TAB_PARTITION_LAYOUT_CONFIG, type TabPartitionLayoutType } from '../types'
 import { initialTabRoutes } from '../data/mockData'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
 import dayjs from 'dayjs'
+
+const LAYOUT_SELECT_OPTIONS = (Object.keys(TAB_PARTITION_LAYOUT_CONFIG) as TabPartitionLayoutType[]).map((k) => ({
+  value: k,
+  label: TAB_PARTITION_LAYOUT_CONFIG[k].label,
+}))
 
 function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [editing, setEditing] = useState(false)
@@ -153,11 +159,13 @@ export default function TabRoutePage() {
       const values = await form.validateFields()
       const now = dayjs().format('YYYY-MM-DD')
 
+      const layoutType = (values.layoutType ?? 'feeds') as TabPartitionLayoutType
+
       if (editingTab) {
         setTabRoutes((prev) =>
           prev.map((t) =>
             t.id === editingTab.id
-              ? { ...t, name: values.name, updatedAt: now }
+              ? { ...t, name: values.name, layoutType, updatedAt: now }
               : t
           )
         )
@@ -168,6 +176,7 @@ export default function TabRoutePage() {
           id: String(Date.now()),
           name: values.name,
           type: 'guides',
+          layoutType,
           status: 'draft',
           sortOrder: maxSort + 1,
           isFixed: false,
@@ -226,6 +235,39 @@ export default function TabRoutePage() {
               prev.map((t) => t.id === record.id ? { ...t, name: v, updatedAt: dayjs().format('YYYY-MM-DD') } : t)
             )}
           />
+        )
+      },
+    },
+    {
+      title: '分区类型',
+      key: 'layoutType',
+      width: 168,
+      render: (_: unknown, record: TabRoute) => {
+        if (record.isFixed) {
+          return <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
+        }
+        const v = record.layoutType ?? 'feeds'
+        return (
+          <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
+            <Select
+              size="small"
+              value={v}
+              bordered={false}
+              style={{ width: 148 }}
+              popupMatchSelectWidth={false}
+              options={LAYOUT_SELECT_OPTIONS}
+              onChange={(layoutType: TabPartitionLayoutType) => {
+                setTabRoutes((prev) =>
+                  prev.map((t) =>
+                    t.id === record.id
+                      ? { ...t, layoutType, updatedAt: dayjs().format('YYYY-MM-DD') }
+                      : t
+                  )
+                )
+                messageApi.success('分区类型已更新')
+              }}
+            />
+          </Tooltip>
         )
       },
     },
@@ -415,13 +457,21 @@ export default function TabRoutePage() {
         width={440}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ layoutType: 'feeds' }}>
           <Form.Item
             name="name"
             label="分区名称"
             rules={[{ required: true, message: '请输入分区名称' }]}
           >
             <Input placeholder="例如：攻略、官方、讨论" autoFocus />
+          </Form.Item>
+          <Form.Item
+            name="layoutType"
+            label="分区类型"
+            tooltip="决定该分区下内容在前台以何种版式展示（与下方模块配置配合，由前台解析）"
+            rules={[{ required: true, message: '请选择分区类型' }]}
+          >
+            <Select placeholder="请选择" options={LAYOUT_SELECT_OPTIONS} />
           </Form.Item>
         </Form>
       </Modal>

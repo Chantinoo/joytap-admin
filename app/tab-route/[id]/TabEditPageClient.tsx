@@ -39,6 +39,7 @@ import {
   MODULE_TYPE_CONFIG,
   CollectionEntry,
   PostEntry,
+  TAB_PARTITION_LAYOUT_CONFIG,
 } from '../../types'
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
@@ -792,7 +793,14 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
               { label: tabInfo?.name || '编辑' },
             ]}
           />
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
+            {tabInfo && !tabInfo.isFixed ? (
+              <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
+                分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
+              </Tag>
+            ) : null}
+          </div>
         </div>
         <Space size={8}>
           <Segmented
