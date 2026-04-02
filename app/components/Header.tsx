@@ -66,14 +66,14 @@ export default function Header() {
       {/* 全局游戏筛选（客户端挂载后渲染避免 hydration 不一致） */}
       {mounted && filterMode !== 'none' && forumFilter && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 13, color: '#6B7280', whiteSpace: 'nowrap' }}>游戏：</span>
+          <span style={{ fontSize: 13, color: '#6B7280', whiteSpace: 'nowrap' }}>论坛：</span>
           <Select
             value={forumFilter.forumId || undefined}
             onChange={(v) => forumFilter.setForumId(v ?? '')}
             style={{ width: 140 }}
             size="middle"
             allowClear={filterMode === 'optional'}
-            placeholder={filterMode === 'optional' ? '全部' : '请选择游戏'}
+            placeholder={filterMode === 'optional' ? '全部' : '请选择论坛'}
             getPopupContainer={() => document.body}
             popupMatchSelectWidth={140}
             styles={{ popup: { root: { zIndex: 9999 } } }}
