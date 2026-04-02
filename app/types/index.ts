@@ -67,7 +67,7 @@ export interface TabRoute {
 export const TAB_TYPE_CONFIG: Record<TabType, { label: string; color: string; bg: string }> = {
   guides: { label: '攻略', color: '#2563EB', bg: '#DBEAFE' },
   official: { label: '官方', color: '#D97706', bg: '#FEF3C7' },
-  discussion: { label: '讨论', color: '#7C3AED', bg: '#F3E8FF' },
+  discussion: { label: '交流', color: '#7C3AED', bg: '#F3E8FF' },
 }
 
 // ── Module types for Level 2 page ──

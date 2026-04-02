@@ -36,7 +36,7 @@ export const initialTabRoutes: TabRoute[] = [
   },
   {
     id: '4',
-    name: '讨论',
+    name: '交流',
     type: 'discussion',
     layoutType: 'feeds',
     status: 'draft',

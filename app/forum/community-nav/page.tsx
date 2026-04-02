@@ -79,7 +79,7 @@ const SortableRow: React.FC<RowProps> = (props) => {
 /** Wiki 导航可选列表（与 Wiki 管理中的导航一致） */
 type WikiNavOption = { key: string; label: string; description: string; link: string }
 
-/** 社区导航条目：讨论(固定) | 单个 Wiki | 下拉菜单 | 充值入口 */
+/** 社区导航条目：交流(固定) | 单个 Wiki | 下拉菜单 | 充值入口 */
 type CommunityNavEntry =
   | { kind: 'discussion'; id: string }
   | { kind: 'wiki'; id: string; wikiKey: string; displayName: string; enabled: boolean }
@@ -119,7 +119,7 @@ function getDropdownLinks(entry: CommunityNavEntry): string[] {
 
 /** 获取条目的导航名称 */
 function getEntryTitle(entry: CommunityNavEntry): string {
-  if (entry.kind === 'discussion') return '讨论'
+  if (entry.kind === 'discussion') return '交流'
   if (entry.kind === 'wiki') return entry.displayName
   if (entry.kind === 'dropdown') return entry.title
   return entry.title
@@ -308,7 +308,7 @@ export default function CommunityNavPage() {
 
   const handleDelete = (entry: CommunityNavEntry) => {
     if (entry.kind === 'discussion') {
-      messageApi.warning('默认讨论入口不可删除')
+      messageApi.warning('默认交流入口不可删除')
       return
     }
     setEntries((prev) => prev.filter((e) => e.id !== entry.id))

@@ -470,7 +470,7 @@ export default function TabRoutePage() {
             label="分区名称"
             rules={[{ required: true, message: '请输入分区名称' }]}
           >
-            <Input placeholder="例如：攻略、官方、讨论" autoFocus />
+            <Input placeholder="例如：攻略、官方、交流" autoFocus />
           </Form.Item>
           <Form.Item
             name="layoutType"
