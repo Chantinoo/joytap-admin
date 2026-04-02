@@ -51,6 +51,17 @@ export const initialTabRoutes: TabRoute[] = [
     createdAt: '2025-01-20',
     updatedAt: '2025-01-20',
   },
+  {
+    id: '5',
+    name: '求助',
+    type: 'discussion',
+    layoutType: 'feeds',
+    status: 'draft',
+    sortOrder: 4,
+    isFixed: false,
+    createdAt: '2025-01-20',
+    updatedAt: '2025-01-20',
+  },
 ]
 
 export const guidesModules: ContentModule[] = [
