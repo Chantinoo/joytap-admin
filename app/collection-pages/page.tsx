@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Table, Button, Tag, Input, Modal, Form, Popconfirm, message, Space, Popover, Tooltip, Switch } from 'antd'
+import { Table, Button, Tag, Input, Modal, Popconfirm, message, Space, Popover, Tooltip, Switch } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { FileText, Languages, Plus, Search, Trash2 } from 'lucide-react'
 import { CollectionPageData } from '../types'
@@ -98,7 +98,6 @@ export default function CollectionPagesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editRecord, setEditRecord] = useState<CollectionPageData | null>(null)
   const [searchName, setSearchName] = useState('')
-  const [form] = Form.useForm()
   const [messageApi, contextHolder] = message.useMessage()
 
   const filteredPages = useMemo(() => {
@@ -111,24 +110,34 @@ export default function CollectionPagesPage() {
     })
   }, [pages, searchName])
 
-  const genLink = () => `/zh/collection/${maxCollectionNumericSuffix(pages) + 1}`
-
-  const handleCreate = async () => {
-    const values = await form.validateFields()
-    const id = `cp-${Date.now()}`
-    const name = values.name as string
-    const path = genLink()
-    addPage({
-      id,
-      name,
-      nameI18n: { zh: name },
+  const createDraftPage = useMemo((): CollectionPageData | null => {
+    if (!createOpen) return null
+    const path = `/zh/collection/${maxCollectionNumericSuffix(pages) + 1}`
+    return {
+      id: '__create__',
+      name: '',
       link: path,
       linkI18n: { zh: path },
+      articlesByLocale: { zh: [] },
+    }
+  }, [createOpen, pages])
+
+  const handleCreateFromForm = (next: { nameI18n: I18nLabels; linkI18n: I18nLabels }) => {
+    const prunedName = next.nameI18n
+    const prunedLink = next.linkI18n
+    const primaryName = pickPrimaryI18nValue(prunedName, '')
+    const primaryLink = pickPrimaryI18nValue(prunedLink, '')
+    const id = `cp-${Date.now()}`
+    addPage({
+      id,
+      name: primaryName,
+      nameI18n: Object.keys(prunedName).length > 0 ? prunedName : undefined,
+      link: primaryLink,
+      linkI18n: Object.keys(prunedLink).length > 0 ? prunedLink : undefined,
       articlesByLocale: { zh: [] },
     })
     messageApi.success('集合页已创建')
     setCreateOpen(false)
-    form.resetFields()
   }
 
   const handleSaveCollectionMeta = (next: { nameI18n: I18nLabels; linkI18n: I18nLabels }) => {
@@ -372,33 +381,20 @@ export default function CollectionPagesPage() {
         <Modal
           title="新建集合页"
           open={createOpen}
-          onCancel={() => {
-            setCreateOpen(false)
-            form.resetFields()
-          }}
-          onOk={handleCreate}
-          okText="创建"
-          cancelText="取消"
-          width={440}
+          onCancel={() => setCreateOpen(false)}
+          footer={null}
+          width={640}
           destroyOnHidden
         >
-          <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-            <Form.Item name="name" label="集合页名称" rules={[{ required: true, message: '请输入集合页名称' }]}>
-              <Input placeholder="例如：武器攻略" autoFocus />
-            </Form.Item>
-            <div
-              style={{
-                fontSize: 12,
-                color: '#9CA3AF',
-                background: '#F9FAFB',
-                borderRadius: 6,
-                padding: '8px 12px',
-                border: '1px solid #E5E7EB',
-              }}
-            >
-              默认生成简体中文前台路径（/zh/collection/N）；其它语种路径请在创建后点击「编辑」，与名称一并配置
-            </div>
-          </Form>
+          {createDraftPage && (
+            <CollectionPageEditForm
+              key={createDraftPage.link}
+              page={createDraftPage}
+              onSave={handleCreateFromForm}
+              onCancel={() => setCreateOpen(false)}
+              submitLabel="创建"
+            />
+          )}
         </Modal>
 
         <Modal

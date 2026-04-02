@@ -60,9 +60,16 @@ export interface CollectionPageEditFormProps {
   page: CollectionPageData
   onSave: (next: { nameI18n: I18nLabels; linkI18n: I18nLabels }) => void
   onCancel: () => void
+  /** 主操作按钮文案，新建时用「创建」 */
+  submitLabel?: string
 }
 
-export default function CollectionPageEditForm({ page, onSave, onCancel }: CollectionPageEditFormProps) {
+export default function CollectionPageEditForm({
+  page,
+  onSave,
+  onCancel,
+  submitLabel = '确定',
+}: CollectionPageEditFormProps) {
   const [rows, setRows] = useState<Row[]>(() => buildRowsFromPage(page))
   const [sourceLang, setSourceLang] = useState<LangCode>('zh')
   const [translating, setTranslating] = useState(false)
@@ -283,7 +290,7 @@ export default function CollectionPageEditForm({ page, onSave, onCancel }: Colle
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px solid #F0F0F0' }}>
         <Button onClick={onCancel}>取消</Button>
         <Button type="primary" onClick={handleSubmit}>
-          确定
+          {submitLabel}
         </Button>
       </div>
     </div>
