@@ -1,5 +1,7 @@
 export type TabType = 'guides' | 'official' | 'discussion'
 
+import type { I18nLabels, LangCode } from '../wiki/components/fieldI18nConstants'
+
 export interface Article {
   id: string
   title: string
@@ -13,9 +15,18 @@ export interface Article {
 export interface CollectionPageData {
   id: string
   name: string
+  /** 集合页名称多语言；未填语种可省略 */
+  nameI18n?: I18nLabels
   link: string
   coverUrl?: string
-  articles: Article[]
+  /** 按语种的帖子列表（各语言互相独立） */
+  articlesByLocale?: Partial<Record<LangCode, Article[]>>
+  /**
+   * @deprecated 仅兼容旧 mock；读取时视为与 `articlesByLocale.zh` 合并，保存按语种帖子后会移除
+   */
+  articles?: Article[]
+  /** 为 true 时前台不展示（后台仍可管理） */
+  hidden?: boolean
 }
 
 export interface TabRoute {

@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Table, Button, Switch, Popconfirm, message, Modal, Form, Input, Segmented } from 'antd'
+import { Table, Button, Switch, Popconfirm, message, Modal, Form, Input, Tooltip, Spin } from 'antd'
 import { ExternalLink, Languages, Plus, Search } from 'lucide-react'
 import PageBreadcrumb from '../../../components/PageBreadcrumb'
+import FieldI18nModal, { type I18nLabels, LANGUAGES } from '../../components/FieldI18nModal'
 import {
   getRoCommunityOrigin,
   buildWikiItemDetailUrl,
@@ -46,7 +47,27 @@ export interface WikiDataRow {
   id: number
   name: string
   nameEn?: string
+  nameI18n?: I18nLabels
   hidden: boolean
+  category?: string
+  quality?: string
+  levelReq?: string
+  job?: string
+  stack?: string
+  icon?: string
+}
+
+const MOCK_QUALITIES = ['C', 'B', 'A', 'S'] as const
+
+function mockItemCardFields(i: number): Pick<WikiDataRow, 'category' | 'quality' | 'levelReq' | 'job' | 'stack' | 'icon'> {
+  return {
+    category: i < 2 ? '背包外货币' : '其他',
+    quality: MOCK_QUALITIES[i % 4],
+    levelReq: '全等级可用',
+    job: '-',
+    stack: '-',
+    icon: i % 3 === 0 ? '/avatar-poring.png' : '/logo.png',
+  }
 }
 
 function buildLocalRows(wikiKey: string, wikiLabel: string): WikiDataRow[] {
@@ -55,10 +76,23 @@ function buildLocalRows(wikiKey: string, wikiLabel: string): WikiDataRow[] {
     id: 1001 + i,
     name: wikiKey === 'items' ? name : `${wikiLabel} · ${name}`,
     hidden: false,
+    ...(wikiKey === 'items' ? mockItemCardFields(i) : {}),
   }))
 }
 
-type ApiAdminItem = { id: number; name: string; hidden: boolean; nameEn?: string }
+type ApiAdminItem = {
+  id: number
+  name: string
+  hidden: boolean
+  nameEn?: string
+  nameI18n?: I18nLabels
+  category?: string
+  quality?: string
+  levelReq?: string
+  job?: string
+  stack?: string
+  icon?: string
+}
 
 /** 拉取道具 Wiki 列表；失败或空列表时回落为本地 MOCK */
 async function pullItemsRowsFromApi(
@@ -72,13 +106,23 @@ async function pullItemsRowsFromApi(
     const list = (data.items ?? []) as ApiAdminItem[]
     if (Array.isArray(list) && list.length > 0) {
       return {
-        rows: list.map((it) => ({
-          key: `items-${it.id}`,
-          id: it.id,
-          name: it.name,
-          hidden: !!it.hidden,
-          ...(it.nameEn ? { nameEn: it.nameEn } : {}),
-        })),
+        rows: list.map((it, idx) => {
+          const fallback = mockItemCardFields(idx)
+          return {
+            key: `items-${it.id}`,
+            id: it.id,
+            name: it.name,
+            hidden: !!it.hidden,
+            ...(it.nameEn ? { nameEn: it.nameEn } : {}),
+            ...(it.nameI18n && Object.keys(it.nameI18n).length > 0 ? { nameI18n: it.nameI18n } : {}),
+            category: it.category ?? fallback.category,
+            quality: it.quality ?? fallback.quality,
+            levelReq: it.levelReq ?? fallback.levelReq,
+            job: it.job ?? fallback.job,
+            stack: it.stack ?? fallback.stack,
+            icon: it.icon ?? fallback.icon,
+          }
+        }),
       }
     }
     return { rows: buildLocalRows('items', wikiLabel), warn: 'empty' }
@@ -158,18 +202,33 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
 
   const [addOpen, setAddOpen] = useState(false)
   const [addSubmitting, setAddSubmitting] = useState(false)
-  const [nameLangTab, setNameLangTab] = useState<'zh' | 'en'>('zh')
-  const [addForm] = Form.useForm<{ nameZh: string; nameEn: string }>()
+  const [addForm] = Form.useForm<{ nameZh: string }>()
+  const [addNameI18nModalOpen, setAddNameI18nModalOpen] = useState(false)
+  const [pendingAddNameI18n, setPendingAddNameI18n] = useState<I18nLabels>({})
+
+  const openAddNameI18nModal = () => {
+    const zh = (addForm.getFieldValue('nameZh') as string | undefined)?.trim() ?? ''
+    setPendingAddNameI18n((prev) => ({ ...prev, ...(zh ? { zh } : {}) }))
+    setAddNameI18nModalOpen(true)
+  }
+
+  const handleAddNameI18nSave = (i18n: I18nLabels) => {
+    const zh = (i18n.zh ?? '').trim()
+    setPendingAddNameI18n(i18n)
+    if (zh) addForm.setFieldsValue({ nameZh: zh })
+    setAddNameI18nModalOpen(false)
+    messageApi.success('多语言已保存')
+  }
 
   const submitAdd = async () => {
     const values = await addForm.validateFields()
-    const zh = (values.nameZh ?? '').trim()
-    const en = (values.nameEn ?? '').trim()
-    if (!zh && !en) {
-      messageApi.error('请至少填写中文或英文名称')
+    const zh = (pendingAddNameI18n.zh ?? values.nameZh ?? '').trim()
+    if (!zh) {
+      messageApi.error('请填写名称（简体），或通过「多语言配置」填写简体中文。')
       return
     }
-    const primary = zh || en
+    const mergedI18n: I18nLabels = { ...pendingAddNameI18n, zh }
+    const en = mergedI18n.en?.trim()
     if (isItemsWiki) {
       setAddSubmitting(true)
       try {
@@ -177,8 +236,9 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: primary,
-            ...(zh && en ? { nameEn: en } : {}),
+            name: zh,
+            ...(en ? { nameEn: en } : {}),
+            nameI18n: mergedI18n,
           }),
         })
         const data = await res.json().catch(() => ({}))
@@ -189,7 +249,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
         messageApi.success('已新增并同步到前台')
         setAddOpen(false)
         addForm.resetFields()
-        setNameLangTab('zh')
+        setPendingAddNameI18n({})
         await syncFromCommunity()
       } catch {
         messageApi.error('无法连接前台，请确认 ro-community 已启动')
@@ -200,7 +260,7 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     }
     const nextId = Math.max(0, ...rows.map((r) => r.id)) + 1
     const label =
-      zh && en ? `${wikiLabel} · ${zh} / ${en}` : `${wikiLabel} · ${primary}`
+      en ? `${wikiLabel} · ${zh} / ${en}` : `${wikiLabel} · ${zh}`
     setRows((prev) => [
       ...prev,
       {
@@ -208,13 +268,14 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
         id: nextId,
         name: label,
         ...(en ? { nameEn: en } : {}),
+        ...(Object.keys(mergedI18n).length > 0 ? { nameI18n: mergedI18n } : {}),
         hidden: false,
       },
     ])
     messageApi.success('已新增（仅本页 MOCK，非道具 Wiki 不同步前台）')
     setAddOpen(false)
     addForm.resetFields()
-    setNameLangTab('zh')
+    setPendingAddNameI18n({})
   }
 
   const patchHidden = async (id: number, hidden: boolean) => {
@@ -255,7 +316,11 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
     return rows.filter((r) => {
       if (String(r.id).includes(q)) return true
       if (r.name.toLowerCase().includes(q)) return true
-      return (r.nameEn ?? '').toLowerCase().includes(q)
+      if ((r.nameEn ?? '').toLowerCase().includes(q)) return true
+      for (const v of Object.values(r.nameI18n ?? {})) {
+        if (typeof v === 'string' && v.toLowerCase().includes(q)) return true
+      }
+      return false
     })
   }, [rows, searchKeyword])
 
@@ -392,100 +457,270 @@ export default function WikiDataPageClient({ wikiKey }: { wikiKey: string }) {
             prefix={<Search size={16} style={{ color: '#9ca3af' }} />}
             style={{ flex: '1 1 220px', maxWidth: 420, minWidth: 180 }}
           />
-          <Button
-            type="primary"
-            icon={<Plus size={14} />}
-            onClick={() => {
-              setNameLangTab('zh')
-              setAddOpen(true)
-            }}
-            style={{ flexShrink: 0, marginLeft: 'auto' }}
-          >
-            新增
-          </Button>
+          {!isItemsWiki ? (
+            <Button
+              type="primary"
+              icon={<Plus size={14} />}
+              onClick={() => {
+                setPendingAddNameI18n({})
+                addForm.resetFields()
+                setAddOpen(true)
+              }}
+              style={{ flexShrink: 0, marginLeft: 'auto' }}
+            >
+              新增
+            </Button>
+          ) : (
+            <div style={{ marginLeft: 'auto', fontSize: 13, color: '#6B7280' }}>共 {dataSource.length} 条</div>
+          )}
         </div>
 
         <div style={{ padding: '16px 20px' }}>
-          <Table<WikiDataRow>
-            rowKey="key"
-            size="small"
-            columns={columns}
-            dataSource={dataSource}
-            pagination={false}
-            loading={loading}
-          />
+          {isItemsWiki ? (
+            <Spin spinning={loading}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+              {dataSource.map((row) => {
+                const title = (row.nameI18n?.zh ?? row.name).trim() || row.name
+                const iconPath = row.icon?.trim() || '/logo.png'
+                const iconSrc = iconPath.startsWith('http')
+                  ? iconPath
+                  : `${communityOrigin.replace(/\/$/, '')}${iconPath.startsWith('/') ? iconPath : `/${iconPath}`}`
+                return (
+                  <div
+                    key={row.key}
+                    style={{
+                      border: '1px solid #E5E7EB',
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      display: 'flex',
+                      gap: 10,
+                      background: '#fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      minHeight: 132,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 56,
+                        height: 56,
+                        flexShrink: 0,
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        background: '#F3F4F6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={iconSrc} alt="" width={56} height={56} style={{ objectFit: 'contain' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: '#111827', lineHeight: 1.3 }}>{title}</div>
+                      {row.nameEn ? (
+                        <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: -2 }}>{row.nameEn}</div>
+                      ) : null}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr',
+                          columnGap: 10,
+                          rowGap: 4,
+                          fontSize: 12,
+                          color: '#6B7280',
+                        }}
+                      >
+                        <span>分类</span>
+                        <span style={{ color: '#111827' }}>{row.category ?? '—'}</span>
+                        <span>品质</span>
+                        <span style={{ color: '#111827' }}>{row.quality ?? '—'}</span>
+                        <span>等级限制</span>
+                        <span style={{ color: '#111827' }}>{row.levelReq ?? '—'}</span>
+                        <span>职业</span>
+                        <span style={{ color: '#111827' }}>{row.job ?? '—'}</span>
+                        <span>堆叠</span>
+                        <span style={{ color: '#111827' }}>{row.stack ?? '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 'auto', paddingTop: 6 }}>
+                        {LANGUAGES.filter((l) => row.nameI18n?.[l.code]?.trim()).map((l) => (
+                          <Tooltip key={l.code} title={`${l.label}: ${row.nameI18n?.[l.code]}`}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: '#6B7280',
+                                background: '#F3F4F6',
+                                padding: '1px 5px',
+                                borderRadius: 3,
+                                lineHeight: '16px',
+                              }}
+                            >
+                              {l.code}
+                            </span>
+                          </Tooltip>
+                        ))}
+                        <Switch
+                          size="small"
+                          checked={row.hidden}
+                          onChange={async (checked) => {
+                            if (isItemsWiki) {
+                              try {
+                                await patchHidden(row.id, checked)
+                              } catch {
+                                return
+                              }
+                            }
+                            setRows((prev) =>
+                              prev.map((r) => (r.key === row.key ? { ...r, hidden: checked } : r)),
+                            )
+                            messageApi.success(checked ? '已标记为隐藏' : '已取消隐藏')
+                          }}
+                        />
+                        <span style={{ fontSize: 11, color: '#9CA3AF' }}>隐藏</span>
+                        <Button
+                          size="small"
+                          type="link"
+                          icon={<ExternalLink size={13} />}
+                          style={{ padding: '0 4px', height: 22, fontSize: 12 }}
+                          onClick={() =>
+                            window.open(buildWikiItemDetailUrl(communityOrigin, row.id), '_blank', 'noopener,noreferrer')
+                          }
+                        >
+                          前台查看
+                        </Button>
+                        <Popconfirm
+                          title="确认删除该卡片？"
+                          description="将从后台列表移除，并同步在前台道具 Wiki 中删除该卡片。"
+                          okText="删除"
+                          cancelText="取消"
+                          okButtonProps={{ danger: true }}
+                          onConfirm={async () => {
+                            try {
+                              await deleteRemote(row.id)
+                            } catch {
+                              return
+                            }
+                            setRows((prev) => prev.filter((r) => r.key !== row.key))
+                            messageApi.success('已删除卡片')
+                          }}
+                        >
+                          <Button size="small" danger type="link" style={{ padding: '0 4px', height: 22, fontSize: 12 }}>
+                            删除
+                          </Button>
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingAddNameI18n({})
+                  addForm.resetFields()
+                  setAddOpen(true)
+                }}
+                style={{
+                  border: '2px dashed #D1D5DB',
+                  borderRadius: 10,
+                  minHeight: 132,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#FAFAFA',
+                  cursor: 'pointer',
+                  color: '#9CA3AF',
+                  fontSize: 42,
+                  fontWeight: 300,
+                  lineHeight: 1,
+                  transition: 'border-color 0.15s, color 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#1677FF'
+                  e.currentTarget.style.color = '#1677FF'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#D1D5DB'
+                  e.currentTarget.style.color = '#9CA3AF'
+                }}
+                aria-label="新增道具"
+              >
+                +
+              </button>
+            </div>
+            </Spin>
+          ) : (
+            <Table<WikiDataRow>
+              rowKey="key"
+              size="small"
+              columns={columns}
+              dataSource={dataSource}
+              pagination={false}
+              loading={loading}
+            />
+          )}
         </div>
       </div>
 
       <Modal
-        title="新增条目"
+        title={isItemsWiki ? '新增道具' : '新增条目'}
         open={addOpen}
         forceRender
         onOk={submitAdd}
         onCancel={() => {
           setAddOpen(false)
           addForm.resetFields()
-          setNameLangTab('zh')
+          setPendingAddNameI18n({})
+          setAddNameI18nModalOpen(false)
         }}
         okText="确定"
         cancelText="取消"
         confirmLoading={addSubmitting}
         destroyOnHidden
       >
-        <Form
-          form={addForm}
-          layout="vertical"
-          style={{ marginTop: 12 }}
-          initialValues={{ nameZh: '', nameEn: '' }}
-        >
+        <Form form={addForm} layout="vertical" style={{ marginTop: 12 }} initialValues={{ nameZh: '' }}>
           <Form.Item
-            required
-            style={{ marginBottom: 8 }}
+            name="nameZh"
             label={
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  flexWrap: 'wrap',
-                  fontWeight: 500,
-                }}
-              >
-                名称
-                <Languages size={16} style={{ color: '#1677ff' }} aria-hidden />
-                <Segmented<'zh' | 'en'>
-                  size="small"
-                  value={nameLangTab}
-                  onChange={(v) => setNameLangTab(v)}
-                  options={[
-                    { label: 'zh', value: 'zh' },
-                    { label: 'en', value: 'en' },
-                  ]}
-                />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontWeight: 500 }}>
+                名称（默认简体中文）
+                <Tooltip title="多语言配置">
+                  <Button
+                    type="text"
+                    htmlType="button"
+                    size="small"
+                    icon={<Languages size={16} style={{ color: '#1677ff' }} />}
+                    style={{ padding: '0 4px', height: 28 }}
+                    onClick={openAddNameI18nModal}
+                    aria-label="多语言配置"
+                  />
+                </Tooltip>
               </span>
             }
+            rules={[{ required: false }]}
           >
-            <div>
-              <div style={{ display: nameLangTab === 'zh' ? 'block' : 'none' }}>
-                <Form.Item name="nameZh" noStyle>
-                  <Input
-                    allowClear
-                    placeholder={isItemsWiki ? '例如：红药水' : '中文或主显示名称'}
-                  />
-                </Form.Item>
-              </div>
-              <div style={{ display: nameLangTab === 'en' ? 'block' : 'none' }}>
-                <Form.Item name="nameEn" noStyle>
-                  <Input allowClear placeholder="e.g. Red Potion" />
-                </Form.Item>
-              </div>
-            </div>
+            <Input
+              allowClear
+              placeholder={isItemsWiki ? '例如：红药水（可与多语言中的简体同步）' : '中文或主显示名称'}
+              onChange={(e) => {
+                const v = e.target.value
+                setPendingAddNameI18n((prev) => ({ ...prev, zh: v }))
+              }}
+            />
           </Form.Item>
           <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.5 }}>
-            至少填写一种语言。道具同步前台：主名称优先中文；若同时填写中英文，英文将单独保存并在前台副标题展示。
+            仅需定义名称：可在上方输入简体，或点击语言图标配置全部语种（须包含简体中文）。道具将同步至前台 JSON。
           </div>
         </Form>
       </Modal>
+
+      <FieldI18nModal
+        open={addNameI18nModalOpen}
+        fieldKey="wiki_item_name"
+        fieldLabel={(pendingAddNameI18n.zh ?? addForm.getFieldValue('nameZh') ?? '').trim() || '道具名称'}
+        i18n={pendingAddNameI18n}
+        onSave={handleAddNameI18nSave}
+        onCancel={() => setAddNameI18nModalOpen(false)}
+      />
     </div>
   )
 }

@@ -2,14 +2,16 @@
 
 import React, { createContext, useContext, useState } from 'react'
 import { collectionPages as initialData } from '../data/mockData'
-import { CollectionPageData, Article } from '../types'
+import { mergeArticlesBuckets } from '../lib/collectionPageLocale'
+import { CollectionPageData, type Article } from '../types'
+import type { LangCode } from '../wiki/components/fieldI18nConstants'
 
 interface CollectionPagesCtx {
   pages: CollectionPageData[]
   addPage: (page: CollectionPageData) => void
   deletePage: (id: string) => void
-  updatePageName: (id: string, name: string) => void
-  updateArticles: (pageId: string, articles: Article[]) => void
+  updatePageMeta: (id: string, patch: Partial<Pick<CollectionPageData, 'name' | 'nameI18n' | 'hidden'>>) => void
+  updateArticles: (pageId: string, locale: LangCode, articles: Article[]) => void
 }
 
 const CollectionPagesContext = createContext<CollectionPagesCtx | null>(null)
@@ -23,14 +25,21 @@ export function CollectionPagesProvider({ children }: { children: React.ReactNod
   const deletePage = (id: string) =>
     setPages((prev) => prev.filter((p) => p.id !== id))
 
-  const updatePageName = (id: string, name: string) =>
-    setPages((prev) => prev.map((p) => p.id === id ? { ...p, name } : p))
+  const updatePageMeta = (id: string, patch: Partial<Pick<CollectionPageData, 'name' | 'nameI18n' | 'hidden'>>) =>
+    setPages((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
 
-  const updateArticles = (pageId: string, articles: Article[]) =>
-    setPages((prev) => prev.map((p) => p.id === pageId ? { ...p, articles } : p))
+  const updateArticles = (pageId: string, locale: LangCode, articles: Article[]) =>
+    setPages((prev) =>
+      prev.map((p) => {
+        if (p.id !== pageId) return p
+        const nextBuckets = { ...mergeArticlesBuckets(p), [locale]: articles }
+        const { articles: _legacy, ...rest } = p
+        return { ...rest, articlesByLocale: nextBuckets }
+      }),
+    )
 
   return (
-    <CollectionPagesContext.Provider value={{ pages, addPage, deletePage, updatePageName, updateArticles }}>
+    <CollectionPagesContext.Provider value={{ pages, addPage, deletePage, updatePageMeta, updateArticles }}>
       {children}
     </CollectionPagesContext.Provider>
   )

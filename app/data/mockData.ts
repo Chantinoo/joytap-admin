@@ -124,143 +124,143 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-1',
     name: '武器攻略',
+    /** 演示「有未命名语种」：韩语下已配帖子，但 nameI18n 未配置 ko 展示名称 */
+    nameI18n: {
+      zh: '武器攻略',
+      'zh-tw': '武器攻略',
+      en: 'Weapon guides',
+    },
     link: '/collection/6',
     coverUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: {
+      zh: [
       { id: 'a1-1', title: '【武器选择】新手必看：五大武器类型全面对比', author: 'Bekty', link: '/posts/a1-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 15420, publishedAt: '2025-01-21' },
       { id: 'a1-2', title: '满星武器获取路线——最省资源的刷取方式', author: 'StarHunter', link: '/posts/a1-2', coverUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=240&fit=crop', viewsCount: 9830, publishedAt: '2025-01-28' },
       { id: 'a1-3', title: '武器词条优先级排行（2025版）', author: 'Bekty', link: '/posts/a1-3', coverUrl: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=240&fit=crop', viewsCount: 22100, publishedAt: '2025-02-03' },
       { id: 'a1-4', title: '远程 vs 近战——不同副本的武器选择思路', author: 'NightWolf', link: '/posts/a1-4', coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=240&fit=crop', viewsCount: 7640, publishedAt: '2025-02-10' },
       { id: 'a1-5', title: '武器强化避坑指南：哪些材料不要提前消耗', author: 'GuideMaster', link: '/posts/a1-5', coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=240&fit=crop', viewsCount: 11200, publishedAt: '2025-02-15' },
-    ],
-  },
+      ],
+      ko: [
+      { id: 'a1-ko-1', title: '[KO] 무기 타입 입문 가이드', author: 'Bekty', link: '/posts/a1-ko-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 2100, publishedAt: '2025-02-01' },
+      { id: 'a1-ko-2', title: '[KO] 강화 재료 절약 팁', author: 'GuideMaster', link: '/posts/a1-ko-2', coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=240&fit=crop', viewsCount: 980, publishedAt: '2025-02-08' },
+      ],
+    }  },
   {
     id: 'cp-2',
     name: '综合攻略',
     link: '/collection/1',
     coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a2-1', title: '多图片帖子', author: 'Bekty', link: '/posts/a2-1', coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400&h=240&fit=crop', viewsCount: 308, publishedAt: '2025-01-21' },
       { id: 'a2-2', title: '三张以上图片效果展示', author: 'Bekty', link: '/posts/a2-2', coverUrl: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=400&h=240&fit=crop', viewsCount: 68, publishedAt: '2025-01-21' },
       { id: 'a2-3', title: '开服第一周：资源规划完整思路', author: 'PlannerX', link: '/posts/a2-3', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=400&h=240&fit=crop', viewsCount: 18900, publishedAt: '2025-01-15' },
       { id: 'a2-4', title: '每日任务最优完成顺序（省时30分钟）', author: 'TimeSaver', link: '/posts/a2-4', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=400&h=240&fit=crop', viewsCount: 34600, publishedAt: '2025-01-18' },
       { id: 'a2-5', title: '活动币怎么花最划算？全商店性价比对比', author: 'GuideMaster', link: '/posts/a2-5', coverUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=240&fit=crop', viewsCount: 12300, publishedAt: '2025-02-01' },
       { id: 'a2-6', title: 'ads', author: 'User999641', link: '/posts/a2-6', coverUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=240&fit=crop', viewsCount: 157, publishedAt: '2025-12-30' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-3',
     name: '新手入门',
     link: '/collection/2',
     coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a3-1', title: '零基础入门：前5天应该做什么', author: 'NewbieGuide', link: '/posts/a3-1', coverUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=240&fit=crop', viewsCount: 56200, publishedAt: '2025-01-10' },
       { id: 'a3-2', title: '属性面板详解——每个数值代表什么意思', author: 'StatNerd', link: '/posts/a3-2', coverUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=240&fit=crop', viewsCount: 29800, publishedAt: '2025-01-12' },
       { id: 'a3-3', title: '服务器选择建议：国服 vs 国际服延迟对比', author: 'NetworkPro', link: '/posts/a3-3', coverUrl: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=240&fit=crop', viewsCount: 18400, publishedAt: '2025-01-14' },
       { id: 'a3-4', title: '公会系统详解：加入公会有什么好处', author: 'GuildMaster', link: '/posts/a3-4', coverUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=240&fit=crop', viewsCount: 13700, publishedAt: '2025-01-20' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-4',
     name: '版本更新',
     link: '/collection/4',
     coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a4-1', title: '2.1版本更新内容汇总——新地图、新武器全解析', author: 'PatchNotes', link: '/posts/a4-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 88400, publishedAt: '2025-02-18' },
       { id: 'a4-2', title: '版本平衡调整：哪些职业被削/加强了', author: 'BalanceWatch', link: '/posts/a4-2', coverUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=240&fit=crop', viewsCount: 41200, publishedAt: '2025-02-19' },
       { id: 'a4-3', title: '新限定活动攻略：全奖励领取路线', author: 'EventHunter', link: '/posts/a4-3', coverUrl: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=240&fit=crop', viewsCount: 33600, publishedAt: '2025-02-20' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-5',
     name: '兑换码汇总',
     link: '/collection/3',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a5-1', title: '最新兑换码整理（持续更新）', author: 'CodeHunter', link: '/posts/a5-1', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=400&h=240&fit=crop', viewsCount: 32100, publishedAt: '2025-01-15' },
       { id: 'a5-2', title: '官方活动兑换码领取攻略', author: 'EventPro', link: '/posts/a5-2', coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=240&fit=crop', viewsCount: 18600, publishedAt: '2025-01-20' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-6',
     name: '强度排行',
     link: '/collection/5',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a6-1', title: 'T0 阵容强度排行（2025赛季）', author: 'MetaAnalyst', link: '/posts/a6-1', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=400&h=240&fit=crop', viewsCount: 45200, publishedAt: '2025-02-10' },
       { id: 'a6-2', title: '各职业强度横评：谁是版本答案', author: 'TierMaster', link: '/posts/a6-2', coverUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=240&fit=crop', viewsCount: 28900, publishedAt: '2025-02-12' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-7',
     name: '装备攻略',
     link: '/collection/7',
     coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a7-1', title: '装备词条优先级完全指南', author: 'GearPro', link: '/posts/a7-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 19300, publishedAt: '2025-01-11' },
       { id: 'a7-2', title: '装备强化材料最优获取路线', author: 'FarmGuide', link: '/posts/a7-2', coverUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=240&fit=crop', viewsCount: 14700, publishedAt: '2025-01-18' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-8',
     name: '模组系统',
     link: '/collection/8',
     coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a8-1', title: '模组系统入门：核心机制全解析', author: 'ModExpert', link: '/posts/a8-1', coverUrl: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=240&fit=crop', viewsCount: 11200, publishedAt: '2025-01-13' },
       { id: 'a8-2', title: '高阶模组搭配思路', author: 'BuildMaster', link: '/posts/a8-2', coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=240&fit=crop', viewsCount: 8900, publishedAt: '2025-01-19' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-9',
     name: '异常状态',
     link: '/collection/9',
     coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a9-1', title: '所有异常状态效果详解', author: 'StatusNerd', link: '/posts/a9-1', coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400&h=240&fit=crop', viewsCount: 16800, publishedAt: '2025-01-15' },
       { id: 'a9-2', title: '异常状态抵抗与利用策略', author: 'TacticsGuru', link: '/posts/a9-2', coverUrl: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=400&h=240&fit=crop', viewsCount: 9400, publishedAt: '2025-01-22' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-10',
     name: '星级配色',
     link: '/collection/10',
     coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a10-1', title: '星级配色系统完全指南', author: 'ColorPro', link: '/posts/a10-1', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=400&h=240&fit=crop', viewsCount: 12300, publishedAt: '2025-01-20' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-11',
     name: '蓝图集合页',
     link: '/collection/11',
     coverUrl: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a11-1', title: '稀有蓝图获取位置汇总', author: 'BlueprintHunt', link: '/posts/a11-1', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=400&h=240&fit=crop', viewsCount: 7800, publishedAt: '2025-01-22' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-12',
     name: '合成配方',
     link: '/collection/12',
     coverUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a12-1', title: '全合成配方速查表', author: 'CraftMaster', link: '/posts/a12-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 5600, publishedAt: '2025-02-01' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-13',
     name: '副本攻略',
     link: '/collection/13',
     coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=200&h=120&fit=crop',
-    articles: [
+    articlesByLocale: { zh: [
       { id: 'a13-1', title: '精英副本通关技巧合集', author: 'DungeonPro', link: '/posts/a13-1', coverUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=240&fit=crop', viewsCount: 9100, publishedAt: '2025-02-05' },
       { id: 'a13-2', title: '首领机制解析与打法建议', author: 'BossFighter', link: '/posts/a13-2', coverUrl: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=240&fit=crop', viewsCount: 6700, publishedAt: '2025-02-08' },
-    ],
-  },
+    ] }  },
   {
     id: 'cp-14',
     name: '防守技巧',
     link: '/collection/14',
     coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=200&h=120&fit=crop',
-    articles: [],
+    articlesByLocale: { zh: [] },
+    hidden: true,
   },
 ]

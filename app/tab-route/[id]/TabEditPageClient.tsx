@@ -43,6 +43,7 @@ import {
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
 import { useLeaveGuard } from '../../context/LeaveGuardContext'
+import { totalArticlesCount } from '../../lib/collectionPageLocale'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
 import ForumSelectRequired from '../../components/ForumSelectRequired'
@@ -75,7 +76,7 @@ function LinkDisplay({ value }: { value: string }) {
 // ─────────────────────────────────────────────
 // CollectionReplacer：替换图标 + 搜索下拉
 // ─────────────────────────────────────────────
-type AvailableCollection = { id: string; name: string; link: string }
+type AvailableCollection = { id: string; name: string; link: string; postsTotal?: number }
 
 function CollectionReplacer({
   currentName,
@@ -143,7 +144,10 @@ function CollectionReplacer({
             onChange={setSelected}
             style={{ width: 160, fontSize: 12 }}
             optionFilterProp="label"
-            options={available.map((c) => ({ value: c.id, label: c.name }))}
+            options={available.map((c) => ({
+              value: c.id,
+              label: c.postsTotal != null ? `${c.name}（${c.postsTotal}）` : c.name,
+            }))}
             popupMatchSelectWidth={160}
           />
           <Button
@@ -317,7 +321,10 @@ function AddCollectionRow({
         onChange={setSelected}
         style={{ width: 160, fontSize: 12 }}
         optionFilterProp="label"
-        options={available.map((c) => ({ value: c.id, label: c.name }))}
+        options={available.map((c) => ({
+          value: c.id,
+          label: c.postsTotal != null ? `${c.name}（${c.postsTotal}）` : c.name,
+        }))}
         popupMatchSelectWidth={160}
       />
       <Button
@@ -664,11 +671,14 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
 
   const { pages: collectionPages } = useCollectionPages()
   // 当前可选集合页列表（供替换下拉使用）
-  const availableCollections: AvailableCollection[] = collectionPages.map((p) => ({
-    id: p.id,
-    name: p.name,
-    link: p.link,
-  }))
+  const availableCollections: AvailableCollection[] = collectionPages
+    .filter((p) => !p.hidden)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      link: p.link,
+      postsTotal: totalArticlesCount(p),
+    }))
 
   const tabInfo = initialTabRoutes.find((t) => t.id === tabId)
   const initialModules = tabId === '2' ? guidesModules : []

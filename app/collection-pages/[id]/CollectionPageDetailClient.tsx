@@ -1,14 +1,21 @@
 'use client'
 
-import React, { useRef, useState, useEffect, useMemo } from 'react'
-import { Button, message, Tooltip, Modal, Input, Popconfirm, Space } from 'antd'
-import { Eye, Calendar, User, Pencil, Plus, Save, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X } from 'lucide-react'
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
+import { Button, message, Tooltip, Modal, Input, Popconfirm, Space, Segmented, Alert, Tag } from 'antd'
+import { Eye, Calendar, User, Pencil, Plus, Trash2, Link as LinkIcon, RefreshCw, Upload as UploadIcon, X } from 'lucide-react'
 import { Article } from '../../types'
 import ImageCropModal from '../../components/ImageCropModal'
 import PageBreadcrumb from '../../components/PageBreadcrumb'
 import ForumSelectRequired from '../../components/ForumSelectRequired'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
-import { useLeaveGuard } from '../../context/LeaveGuardContext'
+import {
+  getArticlesForLocale,
+  selectableLocalesForCollection,
+  collectionDisplayNameForLocale,
+  isLocaleUnnamedWithPosts,
+  localeHasDisplayName,
+} from '../../lib/collectionPageLocale'
+import { LANGUAGES, type LangCode } from '../../wiki/components/fieldI18nConstants'
 
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=240&fit=crop&sat=-100'
 
@@ -22,42 +29,71 @@ export default function CollectionPageDetailClient({ pageId }: { pageId: string 
   const { pages, updateArticles } = useCollectionPages()
   const collectionPage = pages.find((p) => p.id === pageId)
 
-  const initialArticles = collectionPage?.articles ?? []
-  const [articles, setArticles] = useState<Article[]>(initialArticles)
-  const savedArticlesRef = useRef<string>(JSON.stringify(initialArticles))
+  const selectableLocales = useMemo(
+    () => (collectionPage ? selectableLocalesForCollection(collectionPage) : (['zh'] as LangCode[])),
+    [collectionPage],
+  )
+
+  const [activeLocale, setActiveLocale] = useState<LangCode>('zh')
+  const [articles, setArticles] = useState<Article[]>([])
+  const savedArticlesRef = useRef<string>('[]')
+
+  const titleForLocale = useMemo(() => {
+    if (!collectionPage) return '集合页'
+    if (!localeHasDisplayName(collectionPage, activeLocale)) return '未命名'
+    return collectionDisplayNameForLocale(collectionPage, activeLocale)
+  }, [collectionPage, activeLocale])
+
+  const showUnnamedLocaleHint = useMemo(
+    () => (collectionPage ? isLocaleUnnamedWithPosts(collectionPage, activeLocale) : false),
+    [collectionPage, activeLocale],
+  )
+
   useEffect(() => {
-    if (collectionPage) {
-      const next = collectionPage.articles ?? []
-      setArticles(next)
-      savedArticlesRef.current = JSON.stringify(next)
+    if (!collectionPage) return
+    const opts = selectableLocalesForCollection(collectionPage)
+    const locale = opts.includes(activeLocale) ? activeLocale : opts[0]
+    if (locale !== activeLocale) {
+      setActiveLocale(locale)
+      return
     }
-  }, [collectionPage?.id])
+    const next = getArticlesForLocale(collectionPage, locale)
+    setArticles(next)
+    savedArticlesRef.current = JSON.stringify(next)
+  }, [collectionPage, activeLocale])
+
   const isDirty = JSON.stringify(articles) !== savedArticlesRef.current
 
   const [messageApi, contextHolder] = message.useMessage()
 
-  const handleSaveCollection = () => {
-    updateArticles(pageId, articles)
-    savedArticlesRef.current = JSON.stringify(articles)
-    messageApi.success('保存成功，前台将按当前配置展示')
-  }
+  /** 帖子增删改后立即写入全局并提示（无需再点「保存」） */
+  const commitArticles = useCallback(
+    (next: Article[], successMsg: string) => {
+      updateArticles(pageId, activeLocale, next)
+      savedArticlesRef.current = JSON.stringify(next)
+      setArticles(next)
+      messageApi.success(successMsg)
+    },
+    [pageId, activeLocale, updateArticles, messageApi],
+  )
 
-  const leaveGuard = useLeaveGuard()
-  useEffect(() => {
-    if (!leaveGuard) return
-    leaveGuard.setGuard(() => isDirty, handleSaveCollection)
-    return () => leaveGuard.clearGuard()
-  }, [leaveGuard, isDirty, handleSaveCollection])
-
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+  const requestLocaleChange = useCallback(
+    (next: LangCode) => {
+      if (next === activeLocale) return
       if (isDirty) {
-        e.preventDefault()
+        Modal.confirm({
+          title: '未保存的修改',
+          content: '切换语种将丢弃当前语种的未保存修改，是否继续？',
+          okText: '丢弃并切换',
+          cancelText: '取消',
+          onOk: () => setActiveLocale(next),
+        })
+        return
       }
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [isDirty])
+      setActiveLocale(next)
+    },
+    [activeLocale, isDirty],
+  )
 
   // ── 排序：热门（浏览量降序）/ 最新（发布日期降序） ──
   type SortMode = 'hot' | 'latest'
@@ -155,24 +191,24 @@ export default function CollectionPageDetailClient({ pageId }: { pageId: string 
         viewsCount: 0,
         publishedAt: new Date().toISOString().slice(0, 10),
       }
-      setArticles((prev) => [...prev, newArticle])
-      messageApi.success('已添加，请点击保存使前台生效')
+      commitArticles([...articles, newArticle], '添加成功')
     } else if (editModal) {
       const next = articles.map((a) =>
         a.id === (editModal as Article).id
           ? { ...a, link: draftLink.trim(), coverUrl: finalCover }
           : a
       )
-      setArticles(next)
-      messageApi.success('已更新，请点击保存使前台生效')
+      commitArticles(next, '保存成功')
     }
     setEditModal(null)
   }
 
   // ── 删除 ──
   const handleDelete = (id: string) => {
-    setArticles((prev) => prev.filter((a) => a.id !== id))
-    messageApi.success('已移除，请点击保存使前台生效')
+    commitArticles(
+      articles.filter((a) => a.id !== id),
+      '删除成功',
+    )
   }
 
   const isNew = editModal === 'new'
@@ -205,7 +241,7 @@ export default function CollectionPageDetailClient({ pageId }: { pageId: string 
         items={[
           { label: '论坛管理', href: '/forum/list' },
           { label: '集合页管理', href: '/collection-pages' },
-          { label: collectionPage?.name ?? '集合页' },
+          { label: titleForLocale },
         ]}
       />
 
@@ -214,33 +250,68 @@ export default function CollectionPageDetailClient({ pageId }: { pageId: string 
         <div style={{ padding: 48, textAlign: 'center', color: '#9CA3AF' }}>找不到该集合页</div>
       ) : (
         <>
-      {/* 页头：标题 + 保存 + 新增按钮 */}
+      {/* 页头：标题 + 新增帖子 */}
       <div style={{ background: '#fff', borderRadius: 6, padding: '14px 20px', border: '1px solid #E5E7EB' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1F2937', margin: 0 }}>{collectionPage.name}</h1>
-            <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>共 {articles.length} 篇帖子</p>
-          </div>
-          <Space size={8}>
-            {isDirty && (
-              <Button
-                type="primary"
-                icon={<Save size={14} />}
-                style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
-                onClick={handleSaveCollection}
-              >
-                保存
-              </Button>
-            )}
-            <Button
-              type="primary"
-              icon={<Plus size={14} />}
-              style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
-              onClick={openCreate}
+            <h1
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                margin: 0,
+                color: titleForLocale === '未命名' ? '#D97706' : '#1F2937',
+              }}
             >
-              新增帖子
-            </Button>
-          </Space>
+              {titleForLocale}
+            </h1>
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>
+              当前语种 {LANGUAGES.find((l) => l.code === activeLocale)?.label ?? activeLocale} · 共 {articles.length}{' '}
+              篇帖子
+            </p>
+            <div style={{ marginTop: 10 }}>
+              <Segmented
+                size="small"
+                value={activeLocale}
+                onChange={(v) => requestLocaleChange(v as LangCode)}
+                options={selectableLocales.map((code) => {
+                  const langLabel = LANGUAGES.find((l) => l.code === code)?.label ?? code
+                  const unnamed =
+                    collectionPage &&
+                    isLocaleUnnamedWithPosts(collectionPage, code)
+                  return {
+                    value: code,
+                    label: (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ opacity: unnamed ? 0.75 : 1 }}>{langLabel}</span>
+                        {unnamed ? (
+                          <Tag color="warning" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 5px' }}>
+                            未命名
+                          </Tag>
+                        ) : null}
+                      </span>
+                    ),
+                  }
+                })}
+              />
+            </div>
+            {showUnnamedLocaleHint && collectionPage ? (
+              <Alert
+                type="warning"
+                showIcon
+                closable
+                style={{ marginTop: 12, fontSize: 13 }}
+                message="该语种未填写展示名称，前台将不会展示本语种集合页"
+              />
+            ) : null}
+          </div>
+          <Button
+            type="primary"
+            icon={<Plus size={14} />}
+            style={{ borderRadius: 4, height: 32, fontSize: 13, fontWeight: 500 }}
+            onClick={openCreate}
+          >
+            新增帖子
+          </Button>
         </div>
       </div>
 
