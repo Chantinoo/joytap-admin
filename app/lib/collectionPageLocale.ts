@@ -128,7 +128,7 @@ export function collectionPageMatchesPublicLink(page: CollectionPageData, href: 
   return false
 }
 
-/** 扫描已配置路径中的 `/collection/<n>` 序号，用于新建集合页时递增 */
+/** 扫描路径中的 `/collection/<n>` 序号（含 `/zh/collection/N`、`/en/collection/N` 等），用于新建集合页时递增 */
 export function maxCollectionNumericSuffix(pages: CollectionPageData[]): number {
   let max = 0
   for (const p of pages) {

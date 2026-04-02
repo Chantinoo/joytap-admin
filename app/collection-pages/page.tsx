@@ -111,7 +111,7 @@ export default function CollectionPagesPage() {
     })
   }, [pages, searchName])
 
-  const genLink = () => `/collection/${maxCollectionNumericSuffix(pages) + 1}`
+  const genLink = () => `/zh/collection/${maxCollectionNumericSuffix(pages) + 1}`
 
   const handleCreate = async () => {
     const values = await form.validateFields()
@@ -396,7 +396,7 @@ export default function CollectionPagesPage() {
                 border: '1px solid #E5E7EB',
               }}
             >
-              默认生成简体中文前台路径（/collection/N）；其它语种路径请在创建后点击「编辑」，与名称一并配置
+              默认生成简体中文前台路径（/zh/collection/N）；其它语种路径请在创建后点击「编辑」，与名称一并配置
             </div>
           </Form>
         </Modal>

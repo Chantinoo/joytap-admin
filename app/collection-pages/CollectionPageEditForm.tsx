@@ -258,7 +258,7 @@ export default function CollectionPageEditForm({ page, onSave, onCancel }: Colle
                 <Input
                   value={r.link}
                   onChange={(e) => updateRow(r.id, { link: e.target.value })}
-                  placeholder="前台路径，如 /collection/6"
+                  placeholder="如 /zh/collection/6、/zh-tw/collection/6、/en/collection/6"
                   style={{ flex: '1 1 180px', minWidth: 160 }}
                 />
                 <Button

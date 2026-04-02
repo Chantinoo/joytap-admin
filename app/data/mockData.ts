@@ -51,15 +51,15 @@ export const guidesModules: ContentModule[] = [
     title: '',
     sortOrder: 1,
     collections: [
-      { id: 'cg-1', name: '武器攻略',  link: '/collection/6',  coverUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&h=120&fit=crop', articlesCount: 56, viewsCount: 47000, addedAt: '2025-01-10', operator: 'Admin' },
-      { id: 'cg-2', name: '装备攻略',  link: '/collection/7',  coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop', articlesCount: 32, viewsCount: 29000, addedAt: '2025-01-11', operator: 'Admin' },
-      { id: 'cg-3', name: '模组系统',  link: '/collection/8',  coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&h=120&fit=crop', articlesCount: 19, viewsCount: 47000, addedAt: '2025-01-13', operator: 'User01' },
-      { id: 'cg-4', name: '异常状态',  link: '/collection/9',  coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=120&fit=crop', articlesCount: 27, viewsCount: 28000, addedAt: '2025-01-15', operator: 'User01' },
-      { id: 'cg-5', name: '星级配色',  link: '/collection/10', coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=200&h=120&fit=crop', articlesCount: 17, viewsCount: 29000, addedAt: '2025-01-20', operator: 'Admin' },
-      { id: 'cg-6', name: '蓝图集合页', link: '/collection/11', coverUrl: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=200&h=120&fit=crop', articlesCount: 11, viewsCount: 29000, addedAt: '2025-01-22', operator: 'Admin' },
-      { id: 'cg-7', name: '合成配方',  link: '/collection/12', coverUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200&h=120&fit=crop', articlesCount: 16, viewsCount: 6039,  addedAt: '2025-02-01', operator: 'User01' },
-      { id: 'cg-8', name: '副本攻略',  link: '/collection/13', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=200&h=120&fit=crop', articlesCount: 12, viewsCount: 7763,  addedAt: '2025-02-05', operator: 'User01' },
-      { id: 'cg-9', name: '防守技巧',  link: '/collection/14', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=200&h=120&fit=crop', articlesCount: 1,  viewsCount: 0,     addedAt: '2025-02-10', operator: 'Admin' },
+      { id: 'cg-1', name: '武器攻略',  link: '/zh/collection/6',  coverUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&h=120&fit=crop', articlesCount: 56, viewsCount: 47000, addedAt: '2025-01-10', operator: 'Admin' },
+      { id: 'cg-2', name: '装备攻略',  link: '/zh/collection/7',  coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop', articlesCount: 32, viewsCount: 29000, addedAt: '2025-01-11', operator: 'Admin' },
+      { id: 'cg-3', name: '模组系统',  link: '/zh/collection/8',  coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&h=120&fit=crop', articlesCount: 19, viewsCount: 47000, addedAt: '2025-01-13', operator: 'User01' },
+      { id: 'cg-4', name: '异常状态',  link: '/zh/collection/9',  coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=120&fit=crop', articlesCount: 27, viewsCount: 28000, addedAt: '2025-01-15', operator: 'User01' },
+      { id: 'cg-5', name: '星级配色',  link: '/zh/collection/10', coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=200&h=120&fit=crop', articlesCount: 17, viewsCount: 29000, addedAt: '2025-01-20', operator: 'Admin' },
+      { id: 'cg-6', name: '蓝图集合页', link: '/zh/collection/11', coverUrl: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=200&h=120&fit=crop', articlesCount: 11, viewsCount: 29000, addedAt: '2025-01-22', operator: 'Admin' },
+      { id: 'cg-7', name: '合成配方',  link: '/zh/collection/12', coverUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200&h=120&fit=crop', articlesCount: 16, viewsCount: 6039,  addedAt: '2025-02-01', operator: 'User01' },
+      { id: 'cg-8', name: '副本攻略',  link: '/zh/collection/13', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=200&h=120&fit=crop', articlesCount: 12, viewsCount: 7763,  addedAt: '2025-02-05', operator: 'User01' },
+      { id: 'cg-9', name: '防守技巧',  link: '/zh/collection/14', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=200&h=120&fit=crop', articlesCount: 1,  viewsCount: 0,     addedAt: '2025-02-10', operator: 'Admin' },
     ],
   },
 
@@ -70,7 +70,7 @@ export const guidesModules: ContentModule[] = [
     title: '热门攻略',
     sortOrder: 2,
     collections: [
-      { id: 'cl-1', name: '综合攻略', link: '/collection/1', articlesCount: 156, viewsCount: 150000, addedAt: '2025-01-10', operator: 'Admin' },
+      { id: 'cl-1', name: '综合攻略', link: '/zh/collection/1', articlesCount: 156, viewsCount: 150000, addedAt: '2025-01-10', operator: 'Admin' },
     ],
   },
 
@@ -130,10 +130,10 @@ export const collectionPages: CollectionPageData[] = [
       'zh-tw': '武器攻略',
       en: 'Weapon guides',
     },
-    link: '/collection/6',
+    link: '/zh/collection/6',
     linkI18n: {
-      zh: '/collection/6',
-      'zh-tw': '/collection/6',
+      zh: '/zh/collection/6',
+      'zh-tw': '/zh-tw/collection/6',
       en: '/en/collection/6',
       ko: '/ko/collection/6',
     },
@@ -154,7 +154,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-2',
     name: '综合攻略',
-    link: '/collection/1',
+    link: '/zh/collection/1',
     coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a2-1', title: '多图片帖子', author: 'Bekty', link: '/posts/a2-1', coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400&h=240&fit=crop', viewsCount: 308, publishedAt: '2025-01-21' },
@@ -167,7 +167,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-3',
     name: '新手入门',
-    link: '/collection/2',
+    link: '/zh/collection/2',
     coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a3-1', title: '零基础入门：前5天应该做什么', author: 'NewbieGuide', link: '/posts/a3-1', coverUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=240&fit=crop', viewsCount: 56200, publishedAt: '2025-01-10' },
@@ -178,7 +178,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-4',
     name: '版本更新',
-    link: '/collection/4',
+    link: '/zh/collection/4',
     coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a4-1', title: '2.1版本更新内容汇总——新地图、新武器全解析', author: 'PatchNotes', link: '/posts/a4-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 88400, publishedAt: '2025-02-18' },
@@ -188,7 +188,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-5',
     name: '兑换码汇总',
-    link: '/collection/3',
+    link: '/zh/collection/3',
     articlesByLocale: { zh: [
       { id: 'a5-1', title: '最新兑换码整理（持续更新）', author: 'CodeHunter', link: '/posts/a5-1', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=400&h=240&fit=crop', viewsCount: 32100, publishedAt: '2025-01-15' },
       { id: 'a5-2', title: '官方活动兑换码领取攻略', author: 'EventPro', link: '/posts/a5-2', coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=240&fit=crop', viewsCount: 18600, publishedAt: '2025-01-20' },
@@ -196,7 +196,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-6',
     name: '强度排行',
-    link: '/collection/5',
+    link: '/zh/collection/5',
     articlesByLocale: { zh: [
       { id: 'a6-1', title: 'T0 阵容强度排行（2025赛季）', author: 'MetaAnalyst', link: '/posts/a6-1', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=400&h=240&fit=crop', viewsCount: 45200, publishedAt: '2025-02-10' },
       { id: 'a6-2', title: '各职业强度横评：谁是版本答案', author: 'TierMaster', link: '/posts/a6-2', coverUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=240&fit=crop', viewsCount: 28900, publishedAt: '2025-02-12' },
@@ -204,7 +204,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-7',
     name: '装备攻略',
-    link: '/collection/7',
+    link: '/zh/collection/7',
     coverUrl: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a7-1', title: '装备词条优先级完全指南', author: 'GearPro', link: '/posts/a7-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 19300, publishedAt: '2025-01-11' },
@@ -213,7 +213,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-8',
     name: '模组系统',
-    link: '/collection/8',
+    link: '/zh/collection/8',
     coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a8-1', title: '模组系统入门：核心机制全解析', author: 'ModExpert', link: '/posts/a8-1', coverUrl: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=240&fit=crop', viewsCount: 11200, publishedAt: '2025-01-13' },
@@ -222,7 +222,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-9',
     name: '异常状态',
-    link: '/collection/9',
+    link: '/zh/collection/9',
     coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a9-1', title: '所有异常状态效果详解', author: 'StatusNerd', link: '/posts/a9-1', coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400&h=240&fit=crop', viewsCount: 16800, publishedAt: '2025-01-15' },
@@ -231,7 +231,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-10',
     name: '星级配色',
-    link: '/collection/10',
+    link: '/zh/collection/10',
     coverUrl: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a10-1', title: '星级配色系统完全指南', author: 'ColorPro', link: '/posts/a10-1', coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=400&h=240&fit=crop', viewsCount: 12300, publishedAt: '2025-01-20' },
@@ -239,7 +239,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-11',
     name: '蓝图集合页',
-    link: '/collection/11',
+    link: '/zh/collection/11',
     coverUrl: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a11-1', title: '稀有蓝图获取位置汇总', author: 'BlueprintHunt', link: '/posts/a11-1', coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=400&h=240&fit=crop', viewsCount: 7800, publishedAt: '2025-01-22' },
@@ -247,7 +247,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-12',
     name: '合成配方',
-    link: '/collection/12',
+    link: '/zh/collection/12',
     coverUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a12-1', title: '全合成配方速查表', author: 'CraftMaster', link: '/posts/a12-1', coverUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=240&fit=crop', viewsCount: 5600, publishedAt: '2025-02-01' },
@@ -255,7 +255,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-13',
     name: '副本攻略',
-    link: '/collection/13',
+    link: '/zh/collection/13',
     coverUrl: 'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [
       { id: 'a13-1', title: '精英副本通关技巧合集', author: 'DungeonPro', link: '/posts/a13-1', coverUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=240&fit=crop', viewsCount: 9100, publishedAt: '2025-02-05' },
@@ -264,7 +264,7 @@ export const collectionPages: CollectionPageData[] = [
   {
     id: 'cp-14',
     name: '防守技巧',
-    link: '/collection/14',
+    link: '/zh/collection/14',
     coverUrl: 'https://images.unsplash.com/photo-1563207153-f403bf289096?w=200&h=120&fit=crop',
     articlesByLocale: { zh: [] },
     hidden: true,
