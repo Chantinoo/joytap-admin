@@ -15,6 +15,7 @@ export const initialTabRoutes: TabRoute[] = [
   {
     id: '2',
     name: '攻略',
+    nameI18n: { zh: '攻略', en: 'Guides', 'zh-tw': '攻略', ko: '공략' },
     type: 'guides',
     layoutType: 'feeds',
     status: 'active',
@@ -26,16 +27,47 @@ export const initialTabRoutes: TabRoute[] = [
   {
     id: '3',
     name: '官方',
+    nameI18n: { zh: '官方', en: 'Official', 'zh-tw': '官方', ko: '공식' },
     type: 'official',
     status: 'active',
     sortOrder: 2,
     isFixed: false,
     subTabs: [
-      { id: 'sub-official-1', name: '综合', layoutType: 'feeds', sortOrder: 1 },
-      { id: 'sub-official-2', name: '资讯', layoutType: 'feeds', sortOrder: 2 },
-      { id: 'sub-official-3', name: '活动', layoutType: 'feeds', sortOrder: 3 },
-      { id: 'sub-official-4', name: '公告', layoutType: 'feeds', sortOrder: 4 },
-      { id: 'sub-official-5', name: '制作人的一封信', layoutType: 'feeds', sortOrder: 5 },
+      {
+        id: 'sub-official-1',
+        name: '综合',
+        nameI18n: { zh: '综合', en: 'Overview', 'zh-tw': '綜合' },
+        layoutType: 'feeds',
+        sortOrder: 1,
+      },
+      {
+        id: 'sub-official-2',
+        name: '资讯',
+        nameI18n: { zh: '资讯', en: 'News', 'zh-tw': '資訊' },
+        layoutType: 'feeds',
+        sortOrder: 2,
+      },
+      {
+        id: 'sub-official-3',
+        name: '活动',
+        nameI18n: { zh: '活动', en: 'Events', 'zh-tw': '活動' },
+        layoutType: 'feeds',
+        sortOrder: 3,
+      },
+      {
+        id: 'sub-official-4',
+        name: '公告',
+        nameI18n: { zh: '公告', en: 'Notices', 'zh-tw': '公告' },
+        layoutType: 'feeds',
+        sortOrder: 4,
+      },
+      {
+        id: 'sub-official-5',
+        name: '制作人的一封信',
+        nameI18n: { zh: '制作人的一封信', en: 'Letter from the Producer', 'zh-tw': '製作人的一封信' },
+        layoutType: 'feeds',
+        sortOrder: 5,
+      },
     ],
     createdAt: '2025-01-14',
     updatedAt: '2025-01-14',
@@ -140,6 +172,11 @@ export const guidesModules: ContentModule[] = [
     ],
   },
 ]
+
+const guidesRoute = initialTabRoutes.find((t) => t.id === '2')
+if (guidesRoute) {
+  guidesRoute.modules = JSON.parse(JSON.stringify(guidesModules)) as ContentModule[]
+}
 
 export const collectionPages: CollectionPageData[] = [
   {

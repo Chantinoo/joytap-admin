@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Table,
@@ -15,17 +15,17 @@ import {
   Switch,
   Tooltip,
   Select,
-  Popover,
+  Drawer,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   Plus,
-  Pencil,
   Trash2,
   AlertCircle,
   Lock,
   GripVertical,
   MinusCircle,
+  Languages,
 } from 'lucide-react'
 import {
   TabRoute,
@@ -36,6 +36,15 @@ import {
 import { initialTabRoutes } from '../data/mockData'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
+import FieldI18nEditor from '../wiki/components/FieldI18nEditor'
+import { LANGUAGES, type I18nLabels } from '../wiki/components/fieldI18nConstants'
+import {
+  mergeTabNameI18n,
+  mergeSubTabNameI18n,
+  pruneTabNameI18n,
+  subTabPrimaryDisplayName,
+  tabPrimaryDisplayName,
+} from '../lib/tabRouteLocale'
 import dayjs from 'dayjs'
 
 const LAYOUT_SELECT_OPTIONS = (Object.keys(TAB_PARTITION_LAYOUT_CONFIG) as TabPartitionLayoutType[]).map((k) => ({
@@ -43,45 +52,16 @@ const LAYOUT_SELECT_OPTIONS = (Object.keys(TAB_PARTITION_LAYOUT_CONFIG) as TabPa
   label: TAB_PARTITION_LAYOUT_CONFIG[k].label,
 }))
 
-function InlineNameEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-
-  const confirm = () => { onChange(draft); setEditing(false) }
-  const cancel = () => { setDraft(value); setEditing(false) }
-
-  if (editing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Input
-          size="small"
-          value={draft}
-          autoFocus
-          style={{ width: 160, borderRadius: 4 }}
-          onChange={(e) => setDraft(e.target.value)}
-          onPressEnter={confirm}
-          onKeyDown={(e) => e.key === 'Escape' && cancel()}
-        />
-        <Button type="primary" size="small" style={{ fontSize: 12, padding: '0 8px', height: 24 }} onClick={confirm}>确认</Button>
-        <Button size="small" style={{ fontSize: 12, padding: '0 8px', height: 24 }} onClick={cancel}>取消</Button>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontWeight: 500, color: '#1F2937', fontSize: 13 }}>{value}</span>
-      <Tooltip title="修改名称">
-        <Button
-          type="text" size="small"
-          icon={<Pencil size={12} color="#C0C8D0" />}
-          style={{ padding: '0 2px', height: 20 }}
-          onClick={() => { setDraft(value); setEditing(true) }}
-        />
-      </Tooltip>
-    </div>
-  )
+/** antd 6：Drawer 使用 `size`，勿使用已废弃的 `width` */
+const PARTITION_NAME_I18N_DRAWER_PROPS = {
+  placement: 'right' as const,
+  size: 440,
+  destroyOnHidden: true,
+  zIndex: 1100,
+  styles: { body: { paddingTop: 8 } as const },
 }
+
+type PartitionI18nDrawerTarget = null | { kind: 'partition' } | { kind: 'subTab'; index: number }
 
 export default function TabRoutePage() {
   const [tabRoutes, setTabRoutes] = useState<TabRoute[]>(initialTabRoutes)
@@ -90,10 +70,42 @@ export default function TabRoutePage() {
   const [form] = Form.useForm()
   const [messageApi, contextHolder] = message.useMessage()
   const router = useRouter()
+  const [i18nDrawerTarget, setI18nDrawerTarget] = useState<PartitionI18nDrawerTarget>(null)
+
+  const drawerInitialI18n = useMemo((): I18nLabels => {
+    if (!i18nDrawerTarget) return {}
+    if (i18nDrawerTarget.kind === 'partition') {
+      return { ...((form.getFieldValue('partitionNameI18n') as I18nLabels | undefined) ?? {}) }
+    }
+    return { ...((form.getFieldValue(['subTabs', i18nDrawerTarget.index, 'nameI18n']) as I18nLabels | undefined) ?? {}) }
+  }, [i18nDrawerTarget, form])
+
+  const closeI18nDrawer = useCallback(() => setI18nDrawerTarget(null), [])
+
+  const applyPartitionI18n = useCallback(
+    (next: I18nLabels) => {
+      form.setFieldValue('partitionNameI18n', { ...next })
+      messageApi.success('分区名称多语言已更新')
+      setI18nDrawerTarget(null)
+    },
+    [form, messageApi],
+  )
+
+  const applySubTabI18n = useCallback(
+    (index: number, next: I18nLabels) => {
+      form.setFieldValue(['subTabs', index, 'nameI18n'], { ...next })
+      messageApi.success('该二级 Tab 名称多语言已更新')
+      setI18nDrawerTarget(null)
+    },
+    [form, messageApi],
+  )
 
   const dragItemId = useRef<string | null>(null)
   const dragOverId = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  /** 编辑弹窗 Form.List：二级 Tab 行拖拽排序 */
+  const subFormDrag = useRef<{ from: number | null; over: number | null }>({ from: null, over: null })
 
   const handleDragStart = useCallback((id: string) => {
     dragItemId.current = id
@@ -134,7 +146,7 @@ export default function TabRoutePage() {
     setEditingTab(null)
     form.resetFields()
     form.setFieldsValue({
-      name: '',
+      partitionNameI18n: { zh: '' },
       useSecondaryTabs: false,
       layoutType: 'feeds',
       subTabs: [],
@@ -146,11 +158,15 @@ export default function TabRoutePage() {
     setEditingTab(record)
     const hasSub = tabRouteHasSecondaryTabs(record)
     form.setFieldsValue({
-      name: record.name,
+      partitionNameI18n: mergeTabNameI18n(record),
       useSecondaryTabs: hasSub,
       layoutType: record.layoutType ?? 'feeds',
       subTabs: hasSub
-        ? [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({ ...s }))
+        ? [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({
+          id: s.id,
+          layoutType: s.layoutType,
+          nameI18n: mergeSubTabNameI18n(s),
+        }))
         : [],
     })
     setModalOpen(true)
@@ -187,22 +203,39 @@ export default function TabRoutePage() {
       const now = dayjs().format('YYYY-MM-DD')
       const useSecondary = !!values.useSecondaryTabs
 
+      const pI18nForm = (values.partitionNameI18n ?? {}) as I18nLabels
+      const zhPartition = (pI18nForm.zh ?? '').trim()
+      if (!zhPartition) {
+        messageApi.error('请填写简体中文分区名称')
+        return
+      }
+      const partitionNameI18nOut = pruneTabNameI18n({ ...pI18nForm, zh: zhPartition })
+      const partitionName = zhPartition
+
       let nextSubTabs: TabRoute['subTabs']
       let nextLayout: TabPartitionLayoutType | undefined
 
       if (useSecondary) {
-        const raw = (values.subTabs ?? []) as { id?: string; name?: string; layoutType?: TabPartitionLayoutType }[]
-        const rows = raw.filter((r) => (r.name ?? '').trim())
+        const raw = (values.subTabs ?? []) as { id?: string; nameI18n?: I18nLabels; layoutType?: TabPartitionLayoutType }[]
+        const rows = raw.filter((r) => (r.nameI18n?.zh ?? '').trim())
         if (rows.length === 0) {
-          messageApi.error('启用二级 Tab 时请至少添加一行并填写名称')
+          messageApi.error('启用二级 Tab 时请至少添加一行并填写简体中文名称')
           return
         }
-        nextSubTabs = rows.map((r, i) => ({
-          id: (r.id && String(r.id).trim()) || `sub-${Date.now()}-${i}`,
-          name: r.name!.trim(),
-          layoutType: (r.layoutType ?? 'feeds') as TabPartitionLayoutType,
-          sortOrder: i + 1,
-        }))
+        nextSubTabs = rows.map((r, i) => {
+          const id = (r.id && String(r.id).trim()) || `sub-${Date.now()}-${i}`
+          const zh = (r.nameI18n?.zh ?? '').trim()
+          const pruned = pruneTabNameI18n({ ...r.nameI18n, zh })
+          const prev = editingTab?.subTabs?.find((s) => s.id === id)
+          return {
+            id,
+            name: zh,
+            nameI18n: pruned,
+            layoutType: (r.layoutType ?? 'feeds') as TabPartitionLayoutType,
+            sortOrder: i + 1,
+            modules: prev?.modules,
+          }
+        })
         nextLayout = undefined
       } else {
         nextSubTabs = undefined
@@ -216,7 +249,8 @@ export default function TabRoutePage() {
             if (useSecondary) {
               return {
                 ...t,
-                name: values.name,
+                name: partitionName,
+                nameI18n: partitionNameI18nOut,
                 subTabs: nextSubTabs,
                 layoutType: undefined,
                 updatedAt: now,
@@ -224,9 +258,11 @@ export default function TabRoutePage() {
             }
             return {
               ...t,
-              name: values.name,
+              name: partitionName,
+              nameI18n: partitionNameI18nOut,
               layoutType: nextLayout,
               subTabs: undefined,
+              modules: t.modules,
               updatedAt: now,
             }
           }),
@@ -236,7 +272,8 @@ export default function TabRoutePage() {
         const maxSort = Math.max(...tabRoutes.map((t) => t.sortOrder))
         const base: TabRoute = {
           id: String(Date.now()),
-          name: values.name,
+          name: partitionName,
+          nameI18n: partitionNameI18nOut,
           type: 'guides',
           status: 'draft',
           sortOrder: maxSort + 1,
@@ -288,18 +325,25 @@ export default function TabRoutePage() {
       title: '分区名称',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
-      render: (name: string, record: TabRoute) => {
+      width: 240,
+      render: (_: string, record: TabRoute) => {
         if (record.isFixed) {
-          return <span style={{ fontWeight: 500, color: '#9CA3AF', fontSize: 13 }}>{name}</span>
+          return <span style={{ fontWeight: 500, color: '#9CA3AF', fontSize: 13 }}>{record.name}</span>
         }
+        const merged = mergeTabNameI18n(record)
+        const primary = tabPrimaryDisplayName(record)
+        const filled = LANGUAGES.filter((l) => (merged[l.code] ?? '').trim())
         return (
-          <InlineNameEditor
-            value={name}
-            onChange={(v) => setTabRoutes((prev) =>
-              prev.map((t) => t.id === record.id ? { ...t, name: v, updatedAt: dayjs().format('YYYY-MM-DD') } : t)
-            )}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 500, color: '#1F2937', fontSize: 13 }}>{primary}</span>
+            {filled.length > 1
+              ? filled.map((l) => (
+                <Tooltip key={l.code} title={`${l.label}：${(merged[l.code] ?? '').trim()}`}>
+                  <Tag style={{ margin: 0, fontSize: 10, lineHeight: '18px', padding: '0 5px', borderRadius: 4 }}>{l.flag}</Tag>
+                </Tooltip>
+              ))
+              : null}
+          </div>
         )
       },
     },
@@ -320,67 +364,29 @@ export default function TabRoutePage() {
         }
         if (tabRouteHasSecondaryTabs(record)) {
           const sorted = [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder)
-          const popover = (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 260 }}>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>一级分区不配置类型；以下为各二级 Tab 的展示形态</div>
+          const tip = (
+            <div style={{ maxWidth: 320 }}>
               {sorted.map((st) => (
-                <div key={st.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <span style={{ fontSize: 13, color: '#374151', flex: '1 1 auto' }}>{st.name}</span>
-                  <Select
-                    size="small"
-                    style={{ width: 118 }}
-                    value={st.layoutType}
-                    options={LAYOUT_SELECT_OPTIONS}
-                    onChange={(layoutType: TabPartitionLayoutType) => {
-                      setTabRoutes((prev) =>
-                        prev.map((t) => {
-                          if (t.id !== record.id || !t.subTabs) return t
-                          return {
-                            ...t,
-                            subTabs: t.subTabs.map((s) => (s.id === st.id ? { ...s, layoutType } : s)),
-                            updatedAt: dayjs().format('YYYY-MM-DD'),
-                          }
-                        }),
-                      )
-                      messageApi.success('已更新')
-                    }}
-                  />
+                <div key={st.id} style={{ fontSize: 12, color: '#E5E7EB', marginBottom: 4 }}>
+                  {subTabPrimaryDisplayName(st)} · {TAB_PARTITION_LAYOUT_CONFIG[st.layoutType].label}
                 </div>
               ))}
             </div>
           )
           return (
-            <Popover title="二级 Tab · 分区类型" content={popover} trigger="click" placement="bottomLeft">
-              <Tag
-                color="blue"
-                style={{ margin: 0, fontSize: 12, borderRadius: 6, cursor: 'pointer' }}
-              >
-                二级 {sorted.length} 项 · 点击配置
+            <Tooltip title={tip}>
+              <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6, cursor: 'default' }}>
+                二级 {sorted.length} 项 · 编辑分区内配置
               </Tag>
-            </Popover>
+            </Tooltip>
           )
         }
         const v = record.layoutType ?? 'feeds'
         return (
           <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
-            <Select
-              size="small"
-              value={v}
-              bordered={false}
-              style={{ width: 148 }}
-              popupMatchSelectWidth={false}
-              options={LAYOUT_SELECT_OPTIONS}
-              onChange={(layoutType: TabPartitionLayoutType) => {
-                setTabRoutes((prev) =>
-                  prev.map((t) =>
-                    t.id === record.id
-                      ? { ...t, layoutType, updatedAt: dayjs().format('YYYY-MM-DD') }
-                      : t
-                  )
-                )
-                messageApi.success('分区类型已更新')
-              }}
-            />
+            <Tag style={{ margin: 0, fontSize: 12, color: '#374151', background: '#F3F4F6', border: 'none', borderRadius: 6 }}>
+              {TAB_PARTITION_LAYOUT_CONFIG[v].label}
+            </Tag>
           </Tooltip>
         )
       },
@@ -469,7 +475,7 @@ export default function TabRoutePage() {
             </Tooltip>
             <Popconfirm
               title="确认删除该分区？"
-              description={`确定要删除「${record.name}」吗？`}
+              description={`确定要删除「${tabPrimaryDisplayName(record)}」吗？`}
               onConfirm={() => handleDelete(record.id)}
               okText="删除"
               cancelText="取消"
@@ -573,8 +579,8 @@ export default function TabRoutePage() {
       <Modal
         title={editingTab ? '编辑分区' : '新建分区'}
         open={modalOpen}
-        forceRender
         onCancel={() => {
+          setI18nDrawerTarget(null)
           setModalOpen(false)
           setEditingTab(null)
         }}
@@ -584,13 +590,48 @@ export default function TabRoutePage() {
         width={600}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ layoutType: 'feeds', useSecondaryTabs: false, subTabs: [] }}>
+        <Form
+          form={form}
+          layout="vertical"
+          style={{ marginTop: 16 }}
+          initialValues={{ partitionNameI18n: {}, layoutType: 'feeds', useSecondaryTabs: false, subTabs: [] }}
+        >
           <Form.Item
-            name="name"
-            label="分区名称"
-            rules={[{ required: true, message: '请输入分区名称' }]}
+            name={['partitionNameI18n', 'zh']}
+            label="分区名称（简体中文）"
+            rules={[{ required: true, message: '请填写简体中文分区名称' }]}
           >
-            <Input placeholder="例如：攻略、官方、交流" autoFocus />
+            <Input
+              placeholder="必填，列表默认展示"
+              suffix={
+                <Tooltip title="多语言名称">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="多语言名称"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setI18nDrawerTarget({ kind: 'partition' })
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setI18nDrawerTarget({ kind: 'partition' })
+                      }
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      color: '#64748B',
+                    }}
+                  >
+                    <Languages size={18} strokeWidth={2} />
+                  </span>
+                </Tooltip>
+              }
+            />
           </Form.Item>
 
           <Form.Item
@@ -606,7 +647,7 @@ export default function TabRoutePage() {
                 if (checked) {
                   const cur = form.getFieldValue('subTabs') as unknown[] | undefined
                   if (!cur?.length) {
-                    form.setFieldValue('subTabs', [{ id: `sub-${Date.now()}`, name: '', layoutType: 'feeds' }])
+                    form.setFieldValue('subTabs', [{ id: `sub-${Date.now()}`, nameI18n: { zh: '' }, layoutType: 'feeds' }])
                   }
                 }
               }}
@@ -617,25 +658,94 @@ export default function TabRoutePage() {
             {({ getFieldValue }) =>
               getFieldValue('useSecondaryTabs') ? (
                 <Form.List name="subTabs">
-                  {(fields, { add, remove }) => (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>二级 Tab 列表（名称 + 分区类型）</div>
-                      {fields.map(({ key, name: idx, ...restField }) => (
-                        <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                          <Form.Item {...restField} name={[idx, 'id']} hidden>
-                            <Input />
-                          </Form.Item>
-                          <Form.Item
-                            {...restField}
-                            name={[idx, 'name']}
-                            rules={[{ required: true, message: '请填写二级 Tab 名称' }]}
-                            style={{ marginBottom: 0, flex: 1 }}
+                  {(fields, { add, remove, move }) => (
+                    <div
+                      style={{ marginBottom: 8 }}
+                      onDragEnd={() => {
+                        const { from, over } = subFormDrag.current
+                        subFormDrag.current = { from: null, over: null }
+                        if (from != null && over != null && from !== over) move(from, over)
+                      }}
+                    >
+                      {fields.map(({ key, name: idx, ...restField }, index) => (
+                        <div
+                          key={key}
+                          style={{
+                            display: 'flex',
+                            gap: 10,
+                            marginBottom: 10,
+                            padding: '10px 12px',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: 8,
+                            background: '#FAFAFA',
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <div
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.effectAllowed = 'move'
+                              subFormDrag.current = { from: index, over: null }
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault()
+                              e.dataTransfer.dropEffect = 'move'
+                              subFormDrag.current.over = index
+                            }}
+                            style={{ cursor: 'grab', display: 'flex', alignItems: 'center', paddingTop: 6 }}
+                            title="拖动排序"
                           >
-                            <Input placeholder="如：综合、资讯" style={{ width: 160 }} />
-                          </Form.Item>
-                          <Form.Item {...restField} name={[idx, 'layoutType']} style={{ marginBottom: 0 }}>
-                            <Select style={{ width: 130 }} options={LAYOUT_SELECT_OPTIONS} />
-                          </Form.Item>
+                            <GripVertical size={14} color="#9CA3AF" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Form.Item {...restField} name={[idx, 'id']} hidden>
+                              <Input />
+                            </Form.Item>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 12px' }}>
+                              <Form.Item
+                                {...restField}
+                                name={[idx, 'nameI18n', 'zh']}
+                                rules={[{ required: true, message: '请填写简体中文名称' }]}
+                                style={{ marginBottom: 0, flex: '1 1 180px', minWidth: 160 }}
+                              >
+                                <Input
+                                  size="small"
+                                  placeholder="简体中文（必填）"
+                                  suffix={
+                                    <Tooltip title="多语言名称">
+                                      <span
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label="多语言名称"
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          setI18nDrawerTarget({ kind: 'subTab', index: idx })
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            setI18nDrawerTarget({ kind: 'subTab', index: idx })
+                                          }
+                                        }}
+                                        style={{
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          color: '#64748B',
+                                        }}
+                                      >
+                                        <Languages size={15} strokeWidth={2} />
+                                      </span>
+                                    </Tooltip>
+                                  }
+                                />
+                              </Form.Item>
+                              <Form.Item {...restField} name={[idx, 'layoutType']} label="" style={{ marginBottom: 0, minWidth: 148 }}>
+                                <Select size="small" style={{ width: 148 }} options={LAYOUT_SELECT_OPTIONS} placeholder="分区类型" />
+                              </Form.Item>
+                            </div>
+                          </div>
                           <Button
                             type="text"
                             danger
@@ -643,10 +753,15 @@ export default function TabRoutePage() {
                             icon={<MinusCircle size={16} />}
                             onClick={() => remove(idx)}
                             aria-label="删除该行"
+                            style={{ flexShrink: 0 }}
                           />
-                        </Space>
+                        </div>
                       ))}
-                      <Button type="dashed" onClick={() => add({ id: `sub-${Date.now()}`, name: '', layoutType: 'feeds' })} block>
+                      <Button
+                        type="dashed"
+                        onClick={() => add({ id: `sub-${Date.now()}`, nameI18n: { zh: '' }, layoutType: 'feeds' })}
+                        block
+                      >
                         + 添加二级 Tab
                       </Button>
                     </div>
@@ -666,6 +781,33 @@ export default function TabRoutePage() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <Drawer
+        {...PARTITION_NAME_I18N_DRAWER_PROPS}
+        title={
+          i18nDrawerTarget?.kind === 'partition'
+            ? '分区名称 · 多语言'
+            : i18nDrawerTarget
+              ? `二级 Tab · 多语言（第 ${i18nDrawerTarget.index + 1} 项）`
+              : ''
+        }
+        open={i18nDrawerTarget !== null}
+        onClose={closeI18nDrawer}
+      >
+        {i18nDrawerTarget ? (
+          <FieldI18nEditor
+            key={i18nDrawerTarget.kind === 'partition' ? 'partition-i18n' : `subtab-i18n-${i18nDrawerTarget.index}`}
+            fieldLabel={i18nDrawerTarget.kind === 'partition' ? '分区名称' : '二级 Tab 名称'}
+            i18n={drawerInitialI18n}
+            compact
+            onSave={(next) => {
+              if (i18nDrawerTarget.kind === 'partition') applyPartitionI18n(next)
+              else applySubTabI18n(i18nDrawerTarget.index, next)
+            }}
+            onCancel={closeI18nDrawer}
+          />
+        ) : null}
+      </Drawer>
       </ForumSelectRequired>
 
       <style jsx global>{`

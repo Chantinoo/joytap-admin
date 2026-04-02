@@ -6,5 +6,5 @@ export default async function TabEditPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  return <TabEditPageClient tabId={id} />
+  return <TabEditPageClient key={id} tabId={id} />
 }

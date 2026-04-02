@@ -54,14 +54,22 @@ export const TAB_PARTITION_LAYOUT_CONFIG: Record<
 /** 一级分区下的二级 Tab（如「官方」下的 综合/资讯/活动…）；有此项时一级不再使用 layoutType */
 export interface TabSubRoute {
   id: string
+  /** 主展示名（通常与简体中文一致，兼容旧数据与列表默认列） */
   name: string
+  /** 各语种名称；未配置的语种可回退到 `name` / `zh` */
+  nameI18n?: I18nLabels
   layoutType: TabPartitionLayoutType
   sortOrder: number
+  /** 该二级 Tab 下的内容模块（与一级无二级 Tab 时的 modules 结构相同） */
+  modules?: ContentModule[]
 }
 
 export interface TabRoute {
   id: string
+  /** 主展示名（通常与简体中文一致） */
   name: string
+  /** 各语种分区名称 */
+  nameI18n?: I18nLabels
   type: TabType | 'default'
   status: 'active' | 'draft'
   sortOrder: number
@@ -72,6 +80,8 @@ export interface TabRoute {
   layoutType?: TabPartitionLayoutType
   /** 二级 Tab；存在且非空时，分区类型在子级配置 */
   subTabs?: TabSubRoute[]
+  /** 无二级 Tab 时，一级分区下的内容模块 */
+  modules?: ContentModule[]
   createdAt: string
   updatedAt: string
 }

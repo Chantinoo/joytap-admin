@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Button,
@@ -41,8 +41,10 @@ import {
   PostEntry,
   TAB_PARTITION_LAYOUT_CONFIG,
   tabRouteHasSecondaryTabs,
+  type TabRoute,
 } from '../../types'
 import { initialTabRoutes, guidesModules } from '../../data/mockData'
+import { subTabPrimaryDisplayName, tabPrimaryDisplayName } from '../../lib/tabRouteLocale'
 import { useCollectionPages } from '../../context/CollectionPagesContext'
 import { useLeaveGuard } from '../../context/LeaveGuardContext'
 import {
@@ -58,6 +60,37 @@ function formatViews(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}w`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
+}
+
+const MODULE_STATE_PRIMARY = '__primary'
+
+function cloneModulesDeep(m: ContentModule[]): ContentModule[] {
+  return JSON.parse(JSON.stringify(m)) as ContentModule[]
+}
+
+function buildModulesState(
+  tabInfo: TabRoute | undefined,
+  tabId: string,
+  guidesFallback: ContentModule[],
+): { map: Record<string, ContentModule[]>; firstSubId: string | null } {
+  if (!tabInfo) {
+    return { map: { [MODULE_STATE_PRIMARY]: [] }, firstSubId: null }
+  }
+  if (tabRouteHasSecondaryTabs(tabInfo) && tabInfo.subTabs?.length) {
+    const sorted = [...tabInfo.subTabs].sort((a, b) => a.sortOrder - b.sortOrder)
+    const map: Record<string, ContentModule[]> = {}
+    for (const st of sorted) {
+      map[st.id] = st.modules?.length ? cloneModulesDeep(st.modules) : []
+    }
+    return { map, firstSubId: sorted[0]?.id ?? null }
+  }
+  const primary =
+    tabInfo.modules?.length
+      ? cloneModulesDeep(tabInfo.modules)
+      : tabId === '2'
+        ? cloneModulesDeep(guidesFallback)
+        : []
+  return { map: { [MODULE_STATE_PRIMARY]: primary }, firstSubId: null }
 }
 
 // ─────────────────────────────────────────────
@@ -687,10 +720,32 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
     }))
 
   const tabInfo = initialTabRoutes.find((t) => t.id === tabId)
-  const initialModules = tabId === '2' ? guidesModules : []
-  const [modules, setModules] = useState<ContentModule[]>(initialModules)
-  const savedModulesRef = useRef<string>(JSON.stringify(initialModules))
-  const isDirty = JSON.stringify(modules) !== savedModulesRef.current
+  const bundle = useMemo(() => buildModulesState(tabInfo, tabId, guidesModules), [tabInfo, tabId])
+
+  const [modulesByKey, setModulesByKey] = useState<Record<string, ContentModule[]>>(() => bundle.map)
+  const [activeSubTabId, setActiveSubTabId] = useState<string | null>(() => bundle.firstSubId)
+
+  const hasSecondary = !!(tabInfo && tabRouteHasSecondaryTabs(tabInfo))
+  const sortedSubTabs = tabInfo?.subTabs ? [...tabInfo.subTabs].sort((a, b) => a.sortOrder - b.sortOrder) : []
+  const effectiveSubId = hasSecondary ? (activeSubTabId ?? sortedSubTabs[0]?.id ?? null) : null
+  const activeSubTab = effectiveSubId ? sortedSubTabs.find((s) => s.id === effectiveSubId) : undefined
+  const moduleKey = hasSecondary && effectiveSubId ? effectiveSubId : MODULE_STATE_PRIMARY
+  const moduleKeyRef = useRef(moduleKey)
+  moduleKeyRef.current = moduleKey
+
+  const modules = modulesByKey[moduleKey] ?? []
+
+  const setModules = useCallback((action: React.SetStateAction<ContentModule[]>) => {
+    setModulesByKey((prev) => {
+      const key = moduleKeyRef.current
+      const cur = prev[key] ?? []
+      const next = typeof action === 'function' ? (action as (c: ContentModule[]) => ContentModule[])(cur) : action
+      return { ...prev, [key]: next }
+    })
+  }, [])
+
+  const savedModulesRef = useRef<string>(JSON.stringify(bundle.map))
+  const isDirty = JSON.stringify(modulesByKey) !== savedModulesRef.current
 
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [selectedPreview, setSelectedPreview] = useState<string | null>(null)
@@ -700,9 +755,9 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
 
   const handleSavePartition = useCallback(() => {
-    savedModulesRef.current = JSON.stringify(modules)
+    savedModulesRef.current = JSON.stringify(modulesByKey)
     messageApi.success('保存成功，前台将按当前配置展示')
-  }, [modules, messageApi])
+  }, [modulesByKey, messageApi])
 
   const leaveGuard = useLeaveGuard()
   useEffect(() => {
@@ -791,15 +846,15 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
             items={[
               { label: '论坛管理', href: '/forum/list' },
               { label: '分区管理', href: '/tab-route' },
-              { label: tabInfo?.name || '编辑' },
+              { label: tabInfo ? tabPrimaryDisplayName(tabInfo) : '编辑' },
             ]}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo?.name || 'Tab'}</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo ? tabPrimaryDisplayName(tabInfo) : 'Tab'}</h1>
             {tabInfo && !tabInfo.isFixed ? (
               tabRouteHasSecondaryTabs(tabInfo) ? (
                 <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
-                  二级 Tab {tabInfo.subTabs!.length} 个 · 分区类型在子 Tab 上配置
+                  二级 Tab {tabInfo.subTabs!.length} 个 · 分区类型在子 Tab；模块按子 Tab 单独配置
                 </Tag>
               ) : (
                 <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
@@ -840,6 +895,29 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
           )}
         </Space>
       </div>
+
+      {hasSecondary && sortedSubTabs.length > 0 && (
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 10,
+            border: '1px solid #E5E7EB',
+            padding: '12px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 12, color: '#6B7280' }}>
+            选择二级 Tab 后配置该子页模块（各子 Tab 列表互不影响）
+          </div>
+          <Segmented
+            value={effectiveSubId ?? undefined}
+            onChange={(v) => setActiveSubTabId(String(v))}
+            options={sortedSubTabs.map((st) => ({ label: subTabPrimaryDisplayName(st), value: st.id }))}
+          />
+        </div>
+      )}
 
       {/* Body */}
       {viewMode === 'editor' ? (
@@ -976,7 +1054,11 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
             <div style={{ textAlign: 'center', padding: 48, color: '#9CA3AF', background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB' }}>
               <LayoutGrid size={40} color="#D1D5DB" style={{ margin: '0 auto 12px' }} />
               <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>暂无模块</div>
-              <div style={{ fontSize: 13 }}>点击「添加模块」开始配置</div>
+              <div style={{ fontSize: 13 }}>
+                {hasSecondary && activeSubTab
+                  ? `「${subTabPrimaryDisplayName(activeSubTab)}」下暂无模块，点击「添加模块」开始配置`
+                  : '点击「添加模块」开始配置'}
+              </div>
             </div>
           )}
         </div>
