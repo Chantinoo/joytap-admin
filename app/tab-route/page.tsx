@@ -244,7 +244,14 @@ export default function TabRoutePage() {
       width: 168,
       render: (_: unknown, record: TabRoute) => {
         if (record.isFixed) {
-          return <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
+          const v = record.layoutType ?? 'feeds'
+          return (
+            <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
+              <Tag style={{ margin: 0, fontSize: 12, color: '#6B7280', background: '#F3F4F6', border: 'none', borderRadius: 6 }}>
+                {TAB_PARTITION_LAYOUT_CONFIG[v].label}
+              </Tag>
+            </Tooltip>
+          )
         }
         const v = record.layoutType ?? 'feeds'
         return (
