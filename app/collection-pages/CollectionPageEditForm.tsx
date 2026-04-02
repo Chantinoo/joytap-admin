@@ -207,7 +207,7 @@ export default function CollectionPageEditForm({ page, onSave, onCancel }: Colle
 
       <Form layout="vertical" requiredMark>
         <Form.Item
-          label="集合页名称"
+          label="集合页配置"
           required
           style={{ marginBottom: 10 }}
           tooltip="每行选择一个语种，填写该语种下的展示名称与前台路径"
