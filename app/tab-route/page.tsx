@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Table,
@@ -71,6 +71,34 @@ export default function TabRoutePage() {
   const [messageApi, contextHolder] = message.useMessage()
   const router = useRouter()
   const [i18nDrawerTarget, setI18nDrawerTarget] = useState<PartitionI18nDrawerTarget>(null)
+
+  /** Modal 使用 destroyOnHidden 时，Form 仅在 open 后挂载；须在此之后再 reset/setFields，否则会触发 useForm 未连接警告 */
+  useEffect(() => {
+    if (!modalOpen) return
+    if (editingTab) {
+      const hasSub = tabRouteHasSecondaryTabs(editingTab)
+      form.setFieldsValue({
+        partitionNameI18n: mergeTabNameI18n(editingTab),
+        useSecondaryTabs: hasSub,
+        layoutType: editingTab.layoutType ?? 'feeds',
+        subTabs: hasSub
+          ? [...editingTab.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({
+            id: s.id,
+            layoutType: s.layoutType,
+            nameI18n: mergeSubTabNameI18n(s),
+          }))
+          : [],
+      })
+    } else {
+      form.resetFields()
+      form.setFieldsValue({
+        partitionNameI18n: { zh: '' },
+        useSecondaryTabs: false,
+        layoutType: 'feeds',
+        subTabs: [],
+      })
+    }
+  }, [modalOpen, editingTab, form])
 
   const drawerInitialI18n = useMemo((): I18nLabels => {
     if (!i18nDrawerTarget) return {}
@@ -144,31 +172,11 @@ export default function TabRoutePage() {
 
   const handleAdd = () => {
     setEditingTab(null)
-    form.resetFields()
-    form.setFieldsValue({
-      partitionNameI18n: { zh: '' },
-      useSecondaryTabs: false,
-      layoutType: 'feeds',
-      subTabs: [],
-    })
     setModalOpen(true)
   }
 
   const openEditPartition = (record: TabRoute) => {
     setEditingTab(record)
-    const hasSub = tabRouteHasSecondaryTabs(record)
-    form.setFieldsValue({
-      partitionNameI18n: mergeTabNameI18n(record),
-      useSecondaryTabs: hasSub,
-      layoutType: record.layoutType ?? 'feeds',
-      subTabs: hasSub
-        ? [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder).map((s) => ({
-          id: s.id,
-          layoutType: s.layoutType,
-          nameI18n: mergeSubTabNameI18n(s),
-        }))
-        : [],
-    })
     setModalOpen(true)
   }
 
@@ -376,7 +384,7 @@ export default function TabRoutePage() {
           return (
             <Tooltip title={tip}>
               <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6, cursor: 'default' }}>
-                二级 {sorted.length} 项 · 编辑分区内配置
+                二级 {sorted.length} 项
               </Tag>
             </Tooltip>
           )
@@ -517,9 +525,6 @@ export default function TabRoutePage() {
           <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1F2937', margin: 0 }}>
             分区管理
           </h1>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: '4px 0 0' }}>
-            管理游戏社区的内容分区及其排序
-          </p>
         </div>
         <Button
           type="primary"

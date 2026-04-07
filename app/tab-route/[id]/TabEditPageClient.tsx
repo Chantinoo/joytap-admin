@@ -16,7 +16,6 @@ import {
 } from 'antd'
 import {
   Plus,
-  Save,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -744,37 +743,22 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
     })
   }, [])
 
-  const savedModulesRef = useRef<string>(JSON.stringify(bundle.map))
-  const isDirty = JSON.stringify(modulesByKey) !== savedModulesRef.current
-
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [selectedPreview, setSelectedPreview] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor')
+  /** 仅由视图模式控制「添加模块」显隐（已取消手动保存与 isDirty） */
+  const editorToolbarVisible = viewMode === 'editor'
   const [messageApi, contextHolder] = message.useMessage()
 
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
 
-  const handleSavePartition = useCallback(() => {
-    savedModulesRef.current = JSON.stringify(modulesByKey)
-    messageApi.success('保存成功，前台将按当前配置展示')
-  }, [modulesByKey, messageApi])
-
   const leaveGuard = useLeaveGuard()
+  /** 模块增改即时生效，无需「保存」；离开本页时不应再提示未保存 */
   useEffect(() => {
     if (!leaveGuard) return
-    leaveGuard.setGuard(() => isDirty, handleSavePartition)
+    leaveGuard.setGuard(() => false, () => {})
     return () => leaveGuard.clearGuard()
-  }, [leaveGuard, isDirty, handleSavePartition])
-
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault()
-      }
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [isDirty])
+  }, [leaveGuard])
 
   const toggleCollapse = useCallback((modId: string) => {
     setModules((prev) => prev.map((m) => m.id === modId ? { ...m, collapsed: !m.collapsed } : m))
@@ -851,16 +835,10 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo ? tabPrimaryDisplayName(tabInfo) : 'Tab'}</h1>
-            {tabInfo && !tabInfo.isFixed ? (
-              tabRouteHasSecondaryTabs(tabInfo) ? (
-                <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
-                  二级 Tab {tabInfo.subTabs!.length} 个 · 分区类型在子 Tab；模块按子 Tab 单独配置
-                </Tag>
-              ) : (
-                <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
-                  分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
-                </Tag>
-              )
+            {tabInfo && !tabInfo.isFixed && !tabRouteHasSecondaryTabs(tabInfo) ? (
+              <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
+                分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
+              </Tag>
             ) : null}
           </div>
         </div>
@@ -871,18 +849,7 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
             onChange={(v) => setViewMode(v as 'editor' | 'preview')}
             options={[{ value: 'editor', label: '编辑' }, { value: 'preview', label: '预览' }]}
           />
-          {viewMode === 'editor' && isDirty && (
-            <Button
-              type="primary"
-              icon={<Save size={14} />}
-              size="small"
-              onClick={handleSavePartition}
-              style={{ borderRadius: 6, fontWeight: 500 }}
-            >
-              保存
-            </Button>
-          )}
-          {viewMode === 'editor' && (
+          {editorToolbarVisible ? (
             <Button
               type="primary"
               icon={<Plus size={14} />}
@@ -892,7 +859,7 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
             >
               添加模块
             </Button>
-          )}
+          ) : null}
         </Space>
       </div>
 
@@ -908,9 +875,6 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
             gap: 8,
           }}
         >
-          <div style={{ fontSize: 12, color: '#6B7280' }}>
-            选择二级 Tab 后配置该子页模块（各子 Tab 列表互不影响）
-          </div>
           <Segmented
             value={effectiveSubId ?? undefined}
             onChange={(v) => setActiveSubTabId(String(v))}
