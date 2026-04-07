@@ -33,7 +33,7 @@ export interface CollectionPageData {
 }
 
 /** 分区下内容在前台的布局形态（与业务 `type` 独立，仅约束展示样式） */
-export type TabPartitionLayoutType = 'feeds' | 'card-grid'
+export type TabPartitionLayoutType = 'feeds' | 'normal-card' | 'activity-card'
 
 export const TAB_PARTITION_LAYOUT_CONFIG: Record<
   TabPartitionLayoutType,
@@ -41,15 +41,24 @@ export const TAB_PARTITION_LAYOUT_CONFIG: Record<
 > = {
   feeds: {
     label: 'Feeds 流',
-    shortLabel: 'Feeds 流',
-    hint: '纵向信息流：列表行式，常见为左缩略图 + 标题/元信息（类似时间线列表）',
+    shortLabel: 'Feeds',
+    hint: '纵向信息流：列表行式，常见为左缩略图 + 标题/元信息',
   },
-  'card-grid': {
-    label: '卡片网格',
-    shortLabel: '卡片网格',
-    hint: '宫格/卡片式多列铺排，适合专题入口、合集封面墙等',
+  'normal-card': {
+    label: '普通卡片',
+    shortLabel: '普通卡片',
+    hint: '常规卡片式布局，适合图文内容、专题入口等',
+  },
+  'activity-card': {
+    label: '活动卡片',
+    shortLabel: '活动卡片',
+    hint: '活动专用卡片布局，适合运营活动、限时内容等',
   },
 }
+
+/** 列表「官方」列问号提示：开启后仅官方账号可在该范围发帖 */
+export const OFFICIAL_POST_ONLY_TOOLTIP =
+  '开启后，普通用户无法在该分区下发帖，仅官方认证账号可以发帖。'
 
 /** 一级分区下的二级 Tab（如「官方」下的 综合/资讯/活动…）；有此项时一级不再使用 layoutType */
 export interface TabSubRoute {
@@ -60,6 +69,8 @@ export interface TabSubRoute {
   nameI18n?: I18nLabels
   layoutType: TabPartitionLayoutType
   sortOrder: number
+  /** 为 true 时该子 Tab 下仅允许官方账号发帖 */
+  officialPostOnly?: boolean
   /** 该二级 Tab 下的内容模块（与一级无二级 Tab 时的 modules 结构相同） */
   modules?: ContentModule[]
 }
@@ -80,6 +91,11 @@ export interface TabRoute {
   layoutType?: TabPartitionLayoutType
   /** 二级 Tab；存在且非空时，分区类型在子级配置 */
   subTabs?: TabSubRoute[]
+  /**
+   * 无二级 Tab 时：为 true 表示该一级分区仅允许官方发帖。
+   * 有二级 Tab 时此项应省略，由各 `TabSubRoute.officialPostOnly` 控制。
+   */
+  officialPostOnly?: boolean
   /** 无二级 Tab 时，一级分区下的内容模块 */
   modules?: ContentModule[]
   createdAt: string

@@ -16,6 +16,7 @@ import {
   Tooltip,
   Select,
   Drawer,
+  Popover,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -26,16 +27,19 @@ import {
   GripVertical,
   MinusCircle,
   Languages,
+  HelpCircle,
 } from 'lucide-react'
 import {
   TabRoute,
   TAB_PARTITION_LAYOUT_CONFIG,
   tabRouteHasSecondaryTabs,
+  OFFICIAL_POST_ONLY_TOOLTIP,
   type TabPartitionLayoutType,
 } from '../types'
 import { initialTabRoutes } from '../data/mockData'
 import PageBreadcrumb from '../components/PageBreadcrumb'
 import ForumSelectRequired from '../components/ForumSelectRequired'
+import ActivityCardGoPostLink from '../components/ActivityCardGoPostLink'
 import FieldI18nEditor from '../wiki/components/FieldI18nEditor'
 import { LANGUAGES, type I18nLabels } from '../wiki/components/fieldI18nConstants'
 import {
@@ -194,6 +198,28 @@ export default function TabRoutePage() {
     messageApi.success('分区已删除')
   }
 
+  const handlePrimaryOfficialToggle = (id: string, checked: boolean) => {
+    setTabRoutes((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, officialPostOnly: checked, updatedAt: dayjs().format('YYYY-MM-DD') } : t,
+      ),
+    )
+    messageApi.success(checked ? '已设为仅官方可发帖' : '已允许全体用户发帖')
+  }
+
+  const handleSubTabOfficialToggle = (tabId: string, subId: string, checked: boolean) => {
+    setTabRoutes((prev) =>
+      prev.map((t) => {
+        if (t.id !== tabId || !t.subTabs?.length) return t
+        const nextSubs = t.subTabs.map((s) =>
+          s.id === subId ? { ...s, officialPostOnly: checked } : s,
+        )
+        return { ...t, subTabs: nextSubs, updatedAt: dayjs().format('YYYY-MM-DD') }
+      }),
+    )
+    messageApi.success(checked ? '该子 Tab 已设为仅官方可发帖' : '该子 Tab 已允许全体用户发帖')
+  }
+
   const handleStatusToggle = (id: string, checked: boolean) => {
     setTabRoutes((prev) =>
       prev.map((t) =>
@@ -224,23 +250,31 @@ export default function TabRoutePage() {
       let nextLayout: TabPartitionLayoutType | undefined
 
       if (useSecondary) {
-        const raw = (values.subTabs ?? []) as { id?: string; nameI18n?: I18nLabels; layoutType?: TabPartitionLayoutType }[]
+        const raw = (values.subTabs ?? []) as {
+          id?: string
+          nameI18n?: I18nLabels
+          layoutType?: TabPartitionLayoutType
+        }[]
         const rows = raw.filter((r) => (r.nameI18n?.zh ?? '').trim())
         if (rows.length === 0) {
           messageApi.error('启用二级 Tab 时请至少添加一行并填写简体中文名称')
           return
         }
+        const subTabsMergeSource =
+          editingTab != null ? tabRoutes.find((t) => t.id === editingTab.id)?.subTabs : undefined
         nextSubTabs = rows.map((r, i) => {
           const id = (r.id && String(r.id).trim()) || `sub-${Date.now()}-${i}`
           const zh = (r.nameI18n?.zh ?? '').trim()
           const pruned = pruneTabNameI18n({ ...r.nameI18n, zh })
-          const prev = editingTab?.subTabs?.find((s) => s.id === id)
+          const prev =
+            subTabsMergeSource?.find((s) => s.id === id) ?? editingTab?.subTabs?.find((s) => s.id === id)
           return {
             id,
             name: zh,
             nameI18n: pruned,
             layoutType: (r.layoutType ?? 'feeds') as TabPartitionLayoutType,
             sortOrder: i + 1,
+            officialPostOnly: prev?.officialPostOnly ?? false,
             modules: prev?.modules,
           }
         })
@@ -251,6 +285,9 @@ export default function TabRoutePage() {
       }
 
       if (editingTab) {
+        const latestRow = tabRoutes.find((tr) => tr.id === editingTab.id)
+        const mergedPrimaryOfficial =
+          latestRow?.officialPostOnly ?? editingTab.officialPostOnly ?? false
         setTabRoutes((prev) =>
           prev.map((t) => {
             if (t.id !== editingTab.id) return t
@@ -261,6 +298,7 @@ export default function TabRoutePage() {
                 nameI18n: partitionNameI18nOut,
                 subTabs: nextSubTabs,
                 layoutType: undefined,
+                officialPostOnly: undefined,
                 updatedAt: now,
               }
             }
@@ -270,6 +308,7 @@ export default function TabRoutePage() {
               nameI18n: partitionNameI18nOut,
               layoutType: nextLayout,
               subTabs: undefined,
+              officialPostOnly: mergedPrimaryOfficial,
               modules: t.modules,
               updatedAt: now,
             }
@@ -291,7 +330,7 @@ export default function TabRoutePage() {
         }
         const newTab: TabRoute = useSecondary
           ? { ...base, subTabs: nextSubTabs }
-          : { ...base, layoutType: nextLayout }
+          : { ...base, layoutType: nextLayout, officialPostOnly: false }
         setTabRoutes((prev) => [...prev, newTab])
         messageApi.success('分区已创建')
       }
@@ -358,16 +397,19 @@ export default function TabRoutePage() {
     {
       title: '分区类型',
       key: 'layoutType',
-      width: 188,
+      width: 228,
       render: (_: unknown, record: TabRoute) => {
         if (record.isFixed) {
           const v = record.layoutType ?? 'feeds'
           return (
-            <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
-              <Tag style={{ margin: 0, fontSize: 12, color: '#6B7280', background: '#F3F4F6', border: 'none', borderRadius: 6 }}>
-                {TAB_PARTITION_LAYOUT_CONFIG[v].label}
-              </Tag>
-            </Tooltip>
+            <Space size={8} align="center" wrap>
+              <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
+                <Tag style={{ margin: 0, fontSize: 12, color: '#6B7280', background: '#F3F4F6', border: 'none', borderRadius: 6 }}>
+                  {TAB_PARTITION_LAYOUT_CONFIG[v].label}
+                </Tag>
+              </Tooltip>
+              {v === 'activity-card' ? <ActivityCardGoPostLink /> : null}
+            </Space>
           )
         }
         if (tabRouteHasSecondaryTabs(record)) {
@@ -376,26 +418,93 @@ export default function TabRoutePage() {
             <div style={{ maxWidth: 320 }}>
               {sorted.map((st) => (
                 <div key={st.id} style={{ fontSize: 12, color: '#E5E7EB', marginBottom: 4 }}>
-                  {subTabPrimaryDisplayName(st)} · {TAB_PARTITION_LAYOUT_CONFIG[st.layoutType].label}
+                  <span>
+                    {subTabPrimaryDisplayName(st)} · {TAB_PARTITION_LAYOUT_CONFIG[st.layoutType].label}
+                  </span>
                 </div>
               ))}
             </div>
           )
           return (
-            <Tooltip title={tip}>
-              <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6, cursor: 'default' }}>
-                二级 {sorted.length} 项
-              </Tag>
-            </Tooltip>
+            <Space size={8} align="center" wrap>
+              <Tooltip title={tip}>
+                <Tag color="blue" style={{ margin: 0, fontSize: 12, borderRadius: 6, cursor: 'default' }}>
+                  二级 {sorted.length} 项
+                </Tag>
+              </Tooltip>
+            </Space>
           )
         }
         const v = record.layoutType ?? 'feeds'
         return (
-          <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
-            <Tag style={{ margin: 0, fontSize: 12, color: '#374151', background: '#F3F4F6', border: 'none', borderRadius: 6 }}>
-              {TAB_PARTITION_LAYOUT_CONFIG[v].label}
-            </Tag>
+          <Space size={8} align="center" wrap>
+            <Tooltip title={TAB_PARTITION_LAYOUT_CONFIG[v].hint}>
+              <Tag style={{ margin: 0, fontSize: 12, color: '#374151', background: '#F3F4F6', border: 'none', borderRadius: 6 }}>
+                {TAB_PARTITION_LAYOUT_CONFIG[v].label}
+              </Tag>
+            </Tooltip>
+            {v === 'activity-card' ? <ActivityCardGoPostLink /> : null}
+          </Space>
+        )
+      },
+    },
+    {
+      title: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          官方
+          <Tooltip title={OFFICIAL_POST_ONLY_TOOLTIP}>
+            <span style={{ display: 'inline-flex', color: '#9CA3AF', cursor: 'help' }} aria-label="说明">
+              <HelpCircle size={14} />
+            </span>
           </Tooltip>
+        </span>
+      ),
+      key: 'officialPostOnly',
+      width: 168,
+      render: (_: unknown, record: TabRoute) => {
+        if (record.isFixed) {
+          return <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
+        }
+        if (tabRouteHasSecondaryTabs(record)) {
+          const sorted = [...record.subTabs!].sort((a, b) => a.sortOrder - b.sortOrder)
+          const content = (
+            <div style={{ minWidth: 240 }}>
+              {sorted.map((st) => (
+                <div
+                  key={st.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    padding: '8px 0',
+                    borderBottom: '1px solid #F3F4F6',
+                  }}
+                >
+                  <span style={{ fontSize: 13, color: '#374151' }}>{subTabPrimaryDisplayName(st)}</span>
+                  <Switch
+                    size="small"
+                    checked={st.officialPostOnly ?? false}
+                    onChange={(c) => handleSubTabOfficialToggle(record.id, st.id, c)}
+                  />
+                </div>
+              ))}
+            </div>
+          )
+          return (
+            <Popover content={content} trigger="click" placement="bottomLeft">
+              <Button type="link" size="small" style={{ padding: 0, height: 'auto', fontSize: 12 }}>
+                二级 {sorted.length} 项
+              </Button>
+            </Popover>
+          )
+        }
+        return (
+          <Switch
+            size="small"
+            checked={record.officialPostOnly ?? false}
+            onChange={(c) => handlePrimaryOfficialToggle(record.id, c)}
+          />
         )
       },
     },
@@ -749,6 +858,13 @@ export default function TabRoutePage() {
                               <Form.Item {...restField} name={[idx, 'layoutType']} label="" style={{ marginBottom: 0, minWidth: 148 }}>
                                 <Select size="small" style={{ width: 148 }} options={LAYOUT_SELECT_OPTIONS} placeholder="分区类型" />
                               </Form.Item>
+                              <Form.Item noStyle dependencies={[['subTabs', idx, 'layoutType']]}>
+                                {() =>
+                                  form.getFieldValue(['subTabs', idx, 'layoutType']) === 'activity-card' ? (
+                                    <ActivityCardGoPostLink style={{ lineHeight: '24px' }} />
+                                  ) : null
+                                }
+                              </Form.Item>
                             </div>
                           </div>
                           <Button
@@ -773,14 +889,25 @@ export default function TabRoutePage() {
                   )}
                 </Form.List>
               ) : (
-                <Form.Item
-                  name="layoutType"
-                  label="分区类型"
-                  tooltip="无二级 Tab 时，由一级分区决定前台版式"
-                  rules={[{ required: true, message: '请选择分区类型' }]}
-                >
-                  <Select placeholder="请选择" options={LAYOUT_SELECT_OPTIONS} />
-                </Form.Item>
+                <>
+                  <Form.Item
+                    name="layoutType"
+                    label="分区类型"
+                    tooltip="无二级 Tab 时，由一级分区决定前台版式"
+                    rules={[{ required: true, message: '请选择分区类型' }]}
+                  >
+                    <Select placeholder="请选择" options={LAYOUT_SELECT_OPTIONS} />
+                  </Form.Item>
+                  <Form.Item noStyle dependencies={[['layoutType']]}>
+                    {() =>
+                      form.getFieldValue('layoutType') === 'activity-card' ? (
+                        <div style={{ marginTop: -4, marginBottom: 8 }}>
+                          <ActivityCardGoPostLink />
+                        </div>
+                      ) : null
+                    }
+                  </Form.Item>
+                </>
               )
             }
           </Form.Item>

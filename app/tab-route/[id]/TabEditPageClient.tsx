@@ -727,6 +727,7 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
   const hasSecondary = !!(tabInfo && tabRouteHasSecondaryTabs(tabInfo))
   const sortedSubTabs = tabInfo?.subTabs ? [...tabInfo.subTabs].sort((a, b) => a.sortOrder - b.sortOrder) : []
   const effectiveSubId = hasSecondary ? (activeSubTabId ?? sortedSubTabs[0]?.id ?? null) : null
+
   const activeSubTab = effectiveSubId ? sortedSubTabs.find((s) => s.id === effectiveSubId) : undefined
   const moduleKey = hasSecondary && effectiveSubId ? effectiveSubId : MODULE_STATE_PRIMARY
   const moduleKeyRef = useRef(moduleKey)
@@ -836,9 +837,11 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>{tabInfo ? tabPrimaryDisplayName(tabInfo) : 'Tab'}</h1>
             {tabInfo && !tabInfo.isFixed && !tabRouteHasSecondaryTabs(tabInfo) ? (
-              <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
-                分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
-              </Tag>
+              <Space size={8} align="center" wrap>
+                <Tag color="processing" style={{ margin: 0, fontSize: 12, borderRadius: 6 }}>
+                  分区类型：{TAB_PARTITION_LAYOUT_CONFIG[tabInfo.layoutType ?? 'feeds'].label}
+                </Tag>
+              </Space>
             ) : null}
           </div>
         </div>
@@ -871,8 +874,10 @@ export default function TabEditPageClient({ tabId }: { tabId: string }) {
             border: '1px solid #E5E7EB',
             padding: '12px 16px',
             display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 10,
           }}
         >
           <Segmented
